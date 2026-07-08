@@ -135,10 +135,15 @@ textarea{resize:vertical;min-height:60px}
 .cli{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
 .clbox{width:12px;height:12px;border-radius:3px;border:1px solid}
 .cavatar{width:38px;height:38px;border-radius:50%;background:var(--accent-l);color:var(--accent);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.barchart{display:flex;align-items:flex-end;gap:4px;height:72px}
-.bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
-.bar{width:100%;background:var(--accent-l);border-radius:3px 3px 0 0;min-height:3px}
-.bar.today{background:var(--accent)}.blbl{font-size:9px;color:var(--text3)}
+.barchart{display:flex;align-items:flex-end;gap:6px;height:120px;padding:0 4px}
+.bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
+.bar{width:100%;background:var(--accent-l);border-radius:4px 4px 0 0;min-height:4px;transition:height .3s ease;position:relative;cursor:pointer}
+.bar:hover{background:var(--accent-m)}
+.bar.today{background:var(--accent)}
+.bar.today:hover{background:var(--accent-m)}
+.blbl{font-size:9px;color:var(--text3);text-align:center;white-space:nowrap}
+.bamt{font-size:8px;color:var(--accent);font-weight:600;text-align:center;white-space:nowrap;margin-bottom:2px;min-height:10px}
+.bamt.zero{color:var(--text3);font-weight:400}
 .es{text-align:center;padding:28px 20px;color:var(--text3)}
 .es p{font-size:13px}
 .ftabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
@@ -355,7 +360,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="mc"><div class="mlbl">Bulan Ini</div><div class="mval" style="color:var(--accent);font-size:20px" id="r-rev">Rp 0</div><div class="msub up" id="r-rev-sub">—</div></div>
       <div class="mc"><div class="mlbl">Booking</div><div class="mval" id="r-bk">0</div><div class="msub" id="r-bk-sub">bulan ini</div></div>
     </div>
-    <div class="card"><div class="ch"><span class="ct">Pendapatan 7 Hari</span></div><div class="cb"><div class="barchart" id="rev-chart"></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Pendapatan 7 Hari Terakhir</span></div><div class="cb"><div class="barchart" id="rev-chart"></div><div style="margin-top:10px;font-size:12px;color:var(--text3)" id="rev-chart-total">—</div></div></div>
     <div class="card"><div class="ch"><span class="ct">Add-on Breakdown</span></div><div class="cb" id="addon-breakdown"></div></div>
     <div class="card"><div class="ch"><span class="ct">Riwayat Transaksi</span></div><div id="tx-list" style="padding:8px 0"></div></div>
   </div>
@@ -1794,17 +1799,65 @@ function rTX(){
     </div>`).join('');
 }
 function rRevChart(){
-  const days=['S','M','S','R','K','J','S'],vals=[520000,650000,480000,710000,590000,630000,780000],mx=Math.max(...vals);
-  document.getElementById('rev-chart').innerHTML=vals.map((v,i)=>`<div class="bcol"><div class="bar${i===6?' today':''}" style="height:${Math.round(v/mx*68)}px"></div><div class="blbl">${days[i]}</div></div>`).join('');
+  const DAYS_ID=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  const today=new Date();
+  // Build last 7 days array
+  const last7=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(today);
+    d.setDate(d.getDate()-i);
+    const ds=d.toISOString().split('T')[0];
+    const dayLabel=DAYS_ID[d.getDay()];
+    const isToday=i===0;
+    // Sum transactions for this date
+    const rev=TXS.filter(t=>t.date===ds).reduce((s,t)=>s+(t.tot||0),0);
+    last7.push({ds, dayLabel, rev, isToday});
+  }
+  const mx=Math.max(...last7.map(d=>d.rev), 1); // avoid division by 0
+  const minBarH=4;
+  const maxBarH=80;
+
+  document.getElementById('rev-chart').innerHTML=last7.map(d=>{
+    const barH=d.rev>0?Math.max(minBarH,Math.round(d.rev/mx*maxBarH)):minBarH;
+    const amtLabel=d.rev>0?('Rp '+(d.rev>=1000000?(d.rev/1000000).toFixed(1).replace('.0','')+'jt':(d.rev/1000).toFixed(0)+'k')):'—';
+    return`<div class="bcol">
+      <div class="bamt${d.rev===0?' zero':''}">${amtLabel}</div>
+      <div class="bar${d.isToday?' today':''}" style="height:${barH}px" title="${d.ds}: Rp ${d.rev.toLocaleString('id-ID')}"></div>
+      <div class="blbl">${d.dayLabel}</div>
+    </div>`;
+  }).join('');
+
+  // Update chart title with total
+  const total7=last7.reduce((s,d)=>s+d.rev,0);
+  const chartTitle=document.getElementById('rev-chart-total');
+  if(chartTitle) chartTitle.textContent=total7>0?'Total 7 hari: Rp '+total7.toLocaleString('id-ID'):'Belum ada transaksi 7 hari terakhir';
 }
 function rAddonBreak(){
-  const data=ADDONS.slice(0,4).map((a,i)=>({name:a.name,val:(4-i)*80000+50000}));
-  const mx=Math.max(...data.map(d=>d.val));
-  const cols=['var(--accent)','var(--blue)','var(--amber)','var(--purple)'];
+  // Hitung addon revenue dari TXS & BOOKINGS
+  const addonTotals={};
+  BOOKINGS.filter(b=>b.status==='completed').forEach(b=>{
+    b.cats.forEach(cat=>{
+      (cat.sa||[]).forEach(aid=>{
+        const a=ADDONS.find(x=>x.id===aid);
+        const q=(cat.aq||{})[aid]||0;
+        if(a&&q>0){
+          if(!addonTotals[a.name]) addonTotals[a.name]=0;
+          addonTotals[a.name]+=a.price*q;
+        }
+      });
+    });
+  });
+  const data=Object.entries(addonTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(!data.length){
+    document.getElementById('addon-breakdown').innerHTML='<div class="es"><p>Belum ada data add-on</p></div>';
+    return;
+  }
+  const mx=Math.max(...data.map(d=>d[1]));
+  const cols=['var(--accent)','var(--blue)','var(--amber)','var(--purple)','var(--red)'];
   document.getElementById('addon-breakdown').innerHTML=data.map((d,i)=>`
     <div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>${d.name}</span><span style="font-weight:500">${rp(d.val)}</span></div>
-      <div style="height:6px;background:var(--surface2);border-radius:3px"><div style="height:100%;width:${Math.round(d.val/mx*100)}%;background:${cols[i]};border-radius:3px"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>${d[0]}</span><span style="font-weight:500">${rp(d[1])}</span></div>
+      <div style="height:6px;background:var(--surface2);border-radius:3px"><div style="height:100%;width:${Math.round(d[1]/mx*100)}%;background:${cols[i]};border-radius:3px"></div></div>
     </div>`).join('');
 }
 

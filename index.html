@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sincerely Cats — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f6f2;--surface:#fff;--surface2:#f0efe9;
+  --border:#e4e2d8;--border2:#d4d2c8;
+  --text:#1a1916;--text2:#6b6860;--text3:#9c9a92;
+  --accent:#1d6a4a;--accent-l:#e6f2ed;--accent-m:#2d8a62;
+  --amber:#c47a15;--amber-l:#fdf3e3;
+  --red:#c0392b;--red-l:#fdf0ee;
+  --blue:#1a5fa8;--blue-l:#e8f0fa;
+  --purple:#6d28d9;--purple-l:#f3e8ff;
+  --r:10px;--rl:14px;
+  --sh:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shm:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+  --nav-h:64px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;padding-bottom:var(--nav-h)}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:90}
+.topbar-logo{display:flex;align-items:center;gap:8px}
+.topbar-logo-icon{font-size:20px}
+.topbar-logo-text{font-family:'DM Serif Display',serif;font-size:16px;color:var(--accent)}
+.topbar-logo-sub{font-size:10px;color:var(--text3);letter-spacing:.3px}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.topbar-time{font-size:11px;color:var(--text3);background:var(--surface2);padding:4px 10px;border-radius:16px;border:1px solid var(--border)}
+.btn-baru{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;background:var(--accent);color:#fff;-webkit-tap-highlight-color:transparent}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:stretch;z-index:90;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:none;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;padding:8px 4px;-webkit-tap-highlight-color:transparent;position:relative}
+.bn-item.active{color:var(--accent)}
+.bn-item svg{width:20px;height:20px;stroke-width:1.8}
+.bn-badge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center}
+.content{padding:16px}
+.page{display:none}.page.active{display:block}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.mc{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;box-shadow:var(--sh)}
+.mlbl{font-size:10.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.mval{font-size:24px;font-weight:600;margin:4px 0 2px;letter-spacing:-.5px}
+.msub{font-size:11px;color:var(--text3)}.msub.up{color:var(--accent)}.msub.warn{color:var(--amber)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--sh);margin-bottom:14px}
+.ch{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ct{font-size:14px;font-weight:500}
+.cb{padding:14px 16px}
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 16px}
+.sc{border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;border:1.5px solid transparent;position:relative;-webkit-tap-highlight-color:transparent}
+.sc:active{transform:scale(.96)}
+.sc.available{background:var(--accent-l);border-color:#b8dece}
+.sc.occupied{background:#fff5f5;border-color:#f5c6c4}
+.sc.checkout{background:#fdf6e3;border-color:#f5dfa0}
+.sc.checkin{background:#e8f0fa;border-color:#b8cef5}
+.snum{font-size:10px;font-weight:600;color:var(--text3);margin-bottom:4px}
+.sicon{font-size:18px;margin-bottom:3px}
+.sname{font-size:10px;font-weight:500;color:var(--text);line-height:1.2}
+.sbreed{font-size:9px;color:var(--text3)}
+.sdot{width:6px;height:6px;border-radius:50%;position:absolute;top:7px;right:7px}
+.available .sdot{background:var(--accent)}.occupied .sdot{background:var(--red)}.checkout .sdot{background:var(--amber)}.checkin .sdot{background:var(--blue)}
+.legend{display:flex;gap:12px;padding:8px 16px 12px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.ld{width:7px;height:7px;border-radius:50%}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:16px;font-size:11px;font-weight:500}
+.bg{background:var(--accent-l);color:var(--accent)}.br{background:var(--red-l);color:var(--red)}
+.ba{background:var(--amber-l);color:var(--amber)}.bb{background:var(--blue-l);color:var(--blue)}
+.bgr{background:var(--surface2);color:var(--text2)}.bp{background:var(--purple-l);color:var(--purple)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent}
+.btn-p{background:var(--accent);color:#fff}.btn-p:active{background:var(--accent-m)}
+.btn-g{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-g:active{background:var(--surface2)}
+.btn-d{background:var(--red-l);color:var(--red);border:1px solid #f5c6c4}
+.btn svg{width:14px;height:14px;stroke-width:2}
+.btn-full{width:100%;justify-content:center;padding:12px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgr{display:flex;flex-direction:column;gap:5px}
+.fgr.full{grid-column:1/-1}
+label{font-size:12px;font-weight:500;color:var(--text2)}
+input,select,textarea{font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text);outline:none;width:100%;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,106,74,.1)}
+textarea{resize:vertical;min-height:60px}
+.sec-lbl{font-size:10.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:12px 0 4px;grid-column:1/-1;border-top:1px solid var(--border);margin-top:4px}
+.sec-lbl:first-child{border-top:none;padding-top:0}
+.pbox{background:var(--accent-l);border:1px solid #b8dece;border-radius:var(--r);padding:12px 14px;margin-top:12px}
+.pr{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)}
+.pr.tot{border-top:1px solid #b8dece;margin-top:8px;padding-top:8px;font-weight:600;font-size:15px;color:var(--accent)}
+.ov{display:none;position:fixed;inset:0;background:rgba(26,25,22,.5);z-index:200;align-items:flex-end;justify-content:center}
+.ov.open{display:flex}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)}
+.modal::before{content:'';display:block;width:40px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 0}
+.mh{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1}
+.mt{font-size:15px;font-weight:600}
+.mc2{background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;border-radius:6px;display:flex}
+.mb{padding:16px 18px}
+.mf{padding:12px 18px 16px;border-top:1px solid var(--border);display:flex;gap:8px}
+.mf .btn{flex:1;justify-content:center}
+.dr{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.dr:last-child{border-bottom:none}
+.dr span:first-child{color:var(--text3)}
+.dr span:last-child{font-weight:500;text-align:right;max-width:65%}
+.cqitem{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:8px}
+.cqname{flex:1}.cqn{font-size:13px;font-weight:500}.cqp{font-size:11px;color:var(--text3)}
+.cqbox{display:flex;align-items:center;gap:4px}
+.cqbox button{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--text2)}
+.cqbox input{width:48px;text-align:center;padding:6px 4px;font-size:14px;border-radius:8px}
+.cqsub{font-size:12px;font-weight:600;color:var(--accent);min-width:70px;text-align:right}
+.asel{display:flex;flex-direction:column;gap:6px}
+.aci{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.aci.sel{background:var(--accent-l);border-color:#b8dece}
+.aci input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex-shrink:0}
+.acin{flex:1;font-size:13px;font-weight:500}.acip{font-size:11px;color:var(--text3)}
+.mrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.alist{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.aitem{display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.ainame{flex:1;font-size:13px;font-weight:500}.aiprice{font-size:12px;color:var(--accent);font-weight:500}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.cal-nav-t{font-size:15px;font-weight:500}
+.cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cdhdr{text-align:center;font-size:10px;font-weight:700;color:var(--text3);padding:5px 0;text-transform:uppercase}
+.ccell{border-radius:8px;min-height:52px;padding:5px 4px;cursor:pointer;position:relative;border:1.5px solid transparent;-webkit-tap-highlight-color:transparent}
+.ccell:active{transform:scale(.95)}
+.ccell.empty{cursor:default;opacity:0}
+.ccell.past{opacity:.4;cursor:default}
+.ccell.cfull{background:var(--red-l);border-color:#f5c6c4}
+.ccell.chigh{background:#fdf6e3;border-color:#f5dfa0}
+.ccell.clow{background:var(--accent-l);border-color:#b8dece}
+.ccell.today{border-color:var(--accent);border-width:2px}
+.cdate{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px}
+.ccell.today .cdate{color:var(--accent)}
+.cocc{font-size:15px;font-weight:700;letter-spacing:-.5px}
+.coccsub{font-size:9px;color:var(--text3)}
+.cfullbadge{position:absolute;top:3px;right:3px;background:var(--red);color:#fff;font-size:8px;font-weight:700;padding:1px 3px;border-radius:3px}
+.cal-legend{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+.cli{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.clbox{width:12px;height:12px;border-radius:3px;border:1px solid}
+.cavatar{width:38px;height:38px;border-radius:50%;background:var(--accent-l);color:var(--accent);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.barchart{display:flex;align-items:flex-end;gap:4px;height:72px}
+.bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar{width:100%;background:var(--accent-l);border-radius:3px 3px 0 0;min-height:3px}
+.bar.today{background:var(--accent)}.blbl{font-size:9px;color:var(--text3)}
+.es{text-align:center;padding:28px 20px;color:var(--text3)}
+.es p{font-size:13px}
+.ftabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+.ftabs::-webkit-scrollbar{display:none}
+.ftab{flex-shrink:0;font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent}
+.ftab.active{background:var(--accent-l);border-color:#b8dece;color:var(--accent)}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ph-title{font-size:16px;font-weight:600}
+.ph-sub{font-size:12px;color:var(--text3);margin-top:1px}
+
+/* BOOKING CARD — pelanggan first */
+.bk-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);margin-bottom:10px;overflow:hidden;box-shadow:var(--sh)}
+.bk-header{padding:14px 16px 10px}
+.bk-owner-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.bk-owner-name{font-size:15px;font-weight:600}
+.bk-date-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.bk-date{font-size:12px;color:var(--text3)}
+.bk-cats{display:flex;flex-direction:column;gap:6px;padding:0 16px 10px}
+.bk-cat-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px}
+.bk-cat-info{flex:1}
+.bk-cat-name{font-size:13px;font-weight:500}
+.bk-cat-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.bk-actions{display:flex;gap:6px;padding:10px 16px 14px;border-top:1px solid var(--border)}
+.bk-total-row{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:var(--accent-l);border-top:1px solid var(--border)}
+.bk-total{font-size:14px;font-weight:700;color:var(--accent)}
+.bk-dp-info{font-size:11px;color:var(--text3)}
+
+/* cat row in booking form */
+.cat-booking-row{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px}
+.cat-booking-row-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cat-booking-row-title{font-size:13px;font-weight:600;color:var(--accent)}
+
+.toast{position:fixed;bottom:calc(var(--nav-h) + 12px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:12px 18px;border-radius:16px;font-size:13px;font-weight:500;opacity:0;transition:all .25s;z-index:999;box-shadow:var(--shm);text-align:center;max-width:calc(100vw - 32px)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+@media(min-width:768px){
+  body{padding-bottom:0;padding-left:220px}
+  .topbar{display:none}.bottom-nav{display:none}
+  .sidebar{display:flex!important;position:fixed;top:0;left:0;bottom:0;width:220px;background:var(--surface);border-right:1px solid var(--border);flex-direction:column;z-index:100;overflow-y:auto}
+  .sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+  .sl-mark{font-family:'DM Serif Display',serif;font-size:18px;color:var(--accent)}
+  .sl-sub{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+  .snav{padding:12px 0;flex:1}
+  .snav-sec{padding:0 12px;margin-bottom:4px}
+  .snav-lbl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:8px 8px 4px}
+  .sni{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--text2);font-size:13px;border:none;background:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif}
+  .sni:hover{background:var(--surface2);color:var(--text)}
+  .sni.active{background:var(--accent-l);color:var(--accent);font-weight:500}
+  .sni svg{width:15px;height:15px;flex-shrink:0;stroke-width:1.8}
+  .snbadge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px}
+  .sfooter{padding:14px 20px;border-top:1px solid var(--border);font-size:12px;color:var(--text3)}
+  .desktop-topbar{display:flex!important;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+  .dt-title{font-size:15px;font-weight:500}.dt-title span{color:var(--text3);font-weight:400}
+  .dt-right{display:flex;align-items:center;gap:10px}
+  .dt-time{font-size:12px;color:var(--text2);background:var(--surface2);padding:5px 12px;border-radius:20px;border:1px solid var(--border)}
+  .content{padding:20px 24px}
+  .mgrid{grid-template-columns:repeat(4,1fr);gap:12px}
+  .sgrid{grid-template-columns:repeat(6,1fr);gap:8px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .g3{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+  .ov{align-items:center}
+  .modal{border-radius:14px;width:600px;max-width:calc(100vw - 48px)}
+  .modal::before{display:none}
+  .toast{bottom:24px}
+}
+</style>
+</head>
+<body>
+
+<!-- MOBILE TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="topbar-logo-icon">🐾</div>
+    <div>
+      <div class="topbar-logo-text">Sincerely Cats</div>
+      <div class="topbar-logo-sub">Admin Dashboard</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-time" id="livetime-m">—</span>
+    <button class="btn-baru" onclick="openBooking()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      Baru
+    </button>
+  </div>
+</div>
+
+<!-- DESKTOP SIDEBAR -->
+<aside class="sidebar" style="display:none">
+  <div class="sidebar-logo">
+    <div class="sl-mark">🐾 Sincerely Cats</div>
+    <div class="sl-sub">Cat Hotels & Trinkets</div>
+  </div>
+  <nav class="snav">
+    <div class="snav-sec">
+      <div class="snav-lbl">Utama</div>
+      <button class="sni active" onclick="nav('dashboard',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
+      <button class="sni" onclick="nav('slots',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Slot & Kamar<span class="snbadge" id="snav-occ">—</span></button>
+      <button class="sni" onclick="nav('calendar',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Kalender</button>
+      <button class="sni" onclick="nav('bookings',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Booking</button>
+    </div>
+    <div class="snav-sec">
+      <div class="snav-lbl">Data</div>
+      <button class="sni" onclick="nav('customers',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87"/></svg>Pelanggan</button>
+      <button class="sni" onclick="nav('reports',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Laporan</button>
+    </div>
+    <div class="snav-sec">
+      <div class="snav-lbl">Sistem</div>
+      <button class="sni" onclick="nav('settings',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Pengaturan</button>
+    </div>
+  </nav>
+  <div class="sfooter">
+    <span style="font-weight:500;color:var(--text2);font-size:13px">Admin Sincerely Cats</span>
+    <span id="sdate" style="font-size:11px;color:var(--text3);margin-top:2px;display:block"></span>
+  </div>
+</aside>
+
+<!-- DESKTOP TOPBAR -->
+<div class="desktop-topbar" style="display:none">
+  <div class="dt-title" id="dt-title">Dashboard <span>/ Ringkasan Hari Ini</span></div>
+  <div class="dt-right">
+    <span class="dt-time" id="livetime-d">—</span>
+    <button class="btn btn-p" onclick="openBooking()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Booking Baru</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="mgrid">
+      <div class="mc"><div class="mlbl">Slot Terisi</div><div class="mval" style="color:var(--red)" id="d-occ">—</div><div class="msub warn" id="d-avail">—</div></div>
+      <div class="mc"><div class="mlbl">Check-in</div><div class="mval" style="color:var(--blue)" id="d-ci">—</div><div class="msub">Hari ini</div></div>
+      <div class="mc"><div class="mlbl">Check-out</div><div class="mval" style="color:var(--amber)" id="d-co">—</div><div class="msub warn">Sebelum 12.00</div></div>
+      <div class="mc"><div class="mlbl">Pendapatan</div><div class="mval" style="color:var(--accent)">780K</div><div class="msub up">↑ dari 650K kemarin</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Status Slot</span><button class="btn btn-g" style="padding:5px 10px;font-size:12px" onclick="navTo('slots')">Lihat Semua →</button></div>
+      <div class="sgrid" id="mini-slots"></div>
+      <div class="legend">
+        <div class="li"><div class="ld" style="background:var(--accent)"></div>Tersedia</div>
+        <div class="li"><div class="ld" style="background:var(--red)"></div>Terisi</div>
+        <div class="li"><div class="ld" style="background:var(--amber)"></div>Check-out</div>
+        <div class="li"><div class="ld" style="background:var(--blue)"></div>Check-in</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Booking Aktif</span><button class="btn btn-g" style="padding:5px 10px;font-size:12px" onclick="navTo('bookings')">Lihat semua →</button></div>
+      <div id="recent-list" style="padding:8px 0"></div>
+    </div>
+  </div>
+
+  <!-- SLOTS -->
+  <div class="page" id="page-slots">
+    <div class="mgrid" style="grid-template-columns:1fr 1fr">
+      <div class="mc"><div class="mlbl">Tersedia</div><div class="mval" style="color:var(--accent)" id="sa">—</div></div>
+      <div class="mc"><div class="mlbl">Terisi</div><div class="mval" style="color:var(--red)" id="so">—</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">18 Slot Kamar</span><button class="btn btn-p" onclick="openBooking()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Booking</button></div>
+      <div class="sgrid" id="full-slots"></div>
+      <div class="legend"><div class="li"><div class="ld" style="background:var(--accent)"></div>Tersedia</div><div class="li"><div class="ld" style="background:var(--red)"></div>Terisi</div><div class="li"><div class="ld" style="background:var(--amber)"></div>Check-out</div><div class="li"><div class="ld" style="background:var(--blue)"></div>Check-in</div></div>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="page" id="page-calendar">
+    <div class="card"><div class="cb">
+      <div class="cal-nav">
+        <button class="btn btn-g" style="padding:7px 12px" onclick="calPrev()">‹ Prev</button>
+        <div class="cal-nav-t" id="cal-title"></div>
+        <button class="btn btn-g" style="padding:7px 12px" onclick="calNext()">Next ›</button>
+      </div>
+      <div class="cgrid" id="cal-hdrs"></div>
+      <div style="height:6px"></div>
+      <div class="cgrid" id="cal-grid"></div>
+      <div class="cal-legend">
+        <div class="cli"><div class="clbox" style="background:var(--accent-l);border-color:#b8dece"></div>Tersedia</div>
+        <div class="cli"><div class="clbox" style="background:#fdf6e3;border-color:#f5dfa0"></div>Hampir Penuh</div>
+        <div class="cli"><div class="clbox" style="background:var(--red-l);border-color:#f5c6c4"></div>Penuh</div>
+      </div>
+    </div></div>
+    <div class="card"><div class="ch"><span class="ct">Minggu Ini</span></div><div id="cal-upcoming" style="padding:8px 0"></div></div>
+  </div>
+
+  <!-- BOOKINGS -->
+  <div class="page" id="page-bookings">
+    <div class="ph">
+      <div><div class="ph-title">Booking</div><div class="ph-sub">1 booking = 1 pelanggan, bisa banyak kucing</div></div>
+      <button class="btn btn-p" onclick="openBooking()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Baru</button>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterB('all',this)">Aktif</button>
+      <button class="ftab" onclick="filterB('checkin',this)">Check-in</button>
+      <button class="ftab" onclick="filterB('checkout',this)">Check-out</button>
+      <button class="ftab" onclick="filterB('active',this)">Menginap</button>
+      <button class="ftab" onclick="filterB('completed',this)">✓ Selesai</button>
+    </div>
+    <div id="all-list"></div>
+  </div>
+
+  <!-- CUSTOMERS -->
+  <div class="page" id="page-customers">
+    <div class="ph">
+      <div><div class="ph-title">Pelanggan</div><div class="ph-sub" id="cust-sub">—</div></div>
+      <button class="btn btn-p" onclick="openCust()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Tambah</button>
+    </div>
+    <div class="card"><div id="cust-list"></div></div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="page" id="page-reports">
+    <div class="mgrid">
+      <div class="mc"><div class="mlbl">Bulan Ini</div><div class="mval" style="color:var(--accent);font-size:20px">12,4 Jt</div><div class="msub up">↑ 18%</div></div>
+      <div class="mc"><div class="mlbl">Booking</div><div class="mval">47</div><div class="msub">bulan ini</div></div>
+    </div>
+    <div class="card"><div class="ch"><span class="ct">Pendapatan 7 Hari</span></div><div class="cb"><div class="barchart" id="rev-chart"></div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Add-on Breakdown</span></div><div class="cb" id="addon-breakdown"></div></div>
+    <div class="card"><div class="ch"><span class="ct">Riwayat Transaksi</span></div><div id="tx-list" style="padding:8px 0"></div></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch"><span class="ct">Tarif Kamar</span></div>
+      <div class="cb">
+        <div class="fg">
+          <div class="fgr"><label>Weekday / malam</label><input type="number" value="100000" id="s-wd"></div>
+          <div class="fgr"><label>Weekend / malam</label><input type="number" value="130000" id="s-we"></div>
+          <div class="fgr"><label>Early check-in / jam</label><input type="number" value="20000" id="s-ei"></div>
+          <div class="fgr"><label>Late check-out / jam</label><input type="number" value="20000" id="s-lo"></div>
+        </div>
+        <button class="btn btn-p btn-full" style="margin-top:14px" onclick="saveRoom()">Simpan Tarif</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Daftar Add-on</span></div>
+      <div class="cb">
+        <div class="alist" id="addon-list"></div>
+        <div style="border-top:1px solid var(--border);padding-top:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Tambah Item Baru</div>
+          <div class="fg">
+            <div class="fgr"><label>Nama Layanan</label><input type="text" id="an-name" placeholder="cth. Vitamin C"></div>
+            <div class="fgr"><label>Harga / Pemberian</label><input type="number" id="an-price" placeholder="15000"></div>
+          </div>
+          <button class="btn btn-p btn-full" style="margin-top:12px" onclick="addAddon()">Tambah Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="bn-item active" id="bn-dashboard" onclick="nav('dashboard',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
+  <button class="bn-item" id="bn-slots" onclick="nav('slots',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Slot<span class="bn-badge" id="bn-occ">—</span></button>
+  <button class="bn-item" id="bn-calendar" onclick="nav('calendar',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Kalender</button>
+  <button class="bn-item" id="bn-bookings" onclick="nav('bookings',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Booking</button>
+  <button class="bn-item" id="bn-more" onclick="nav('customers',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>Lebih</button>
+</nav>
+
+<!-- BOOKING MODAL -->
+<div class="ov" id="bk-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt">Booking Baru</div><button class="mc2" onclick="closeOv('bk-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div class="fg">
+        <!-- PELANGGAN SECTION -->
+        <div class="sec-lbl" style="border-top:none;padding-top:0">Data Pelanggan</div>
+        <div class="fgr full">
+          <label>Pilih Pelanggan *</label>
+          <select id="b-owner" onchange="fillOwnerData()"><option value="">-- Pilih Pelanggan --</option></select>
+        </div>
+        <div class="fgr"><label>WhatsApp</label><input type="text" id="b-wa" readonly style="background:var(--surface2);color:var(--text3)"></div>
+        <div class="fgr"><label>Catatan</label><input type="text" id="b-notes" placeholder="Catatan khusus"></div>
+
+        <!-- JADWAL SECTION -->
+        <div class="sec-lbl">Jadwal Menginap</div>
+        <div class="fgr"><label>Check-in *</label><input type="date" id="b-ci" oninput="calcAllCats()"></div>
+        <div class="fgr"><label>Check-out *</label><input type="date" id="b-co" oninput="calcAllCats()"></div>
+        <div class="fgr"><label>Jam Check-in</label><select id="b-cih" onchange="calcAllCats()"><option value="0">Normal (12.00)</option><option value="1">Early +1j (11.00)</option><option value="2">Early +2j (10.00)</option><option value="3">Early +3j (09.00)</option></select></div>
+        <div class="fgr"><label>Jam Check-out</label><select id="b-coh" onchange="calcAllCats()"><option value="0">Normal (12.00)</option><option value="1">Late +1j (13.00)</option><option value="2">Late +2j (14.00)</option><option value="3">Late +3j (15.00)</option></select></div>
+
+        <!-- KUCING SECTION -->
+        <div class="sec-lbl">Kucing yang Dititipkan</div>
+        <div class="fgr full">
+          <div id="cat-booking-rows"></div>
+          <button class="btn btn-g" style="width:100%;justify-content:center;padding:10px;font-size:13px;margin-top:4px" onclick="addCatBookingRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Tambah Kucing
+          </button>
+        </div>
+      </div>
+
+      <!-- PRICE SUMMARY -->
+      <div class="pbox" id="pbox" style="display:none;margin-top:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Estimasi Biaya</div>
+        <div id="price-rows"></div>
+        <div class="pr tot"><span>Total Estimasi</span><span id="pc-total">Rp 0</span></div>
+        <div class="pr" style="color:var(--text3);font-style:italic;font-size:12px"><span>Add-ons dihitung saat checkout</span><span>—</span></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeOv('bk-ov')">Batal</button>
+      <button class="btn btn-p" onclick="saveBk()">Simpan & Buat Invoice</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKING DETAIL MODAL -->
+<div class="ov" id="bd-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="bd-title">Detail Booking</div><button class="mc2" onclick="closeOv('bd-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb" id="bd-body"></div>
+    <div class="mf" id="bd-foot"></div>
+  </div>
+</div>
+
+<!-- PROFORMA INVOICE MODAL -->
+<div class="ov" id="pi-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt">Proforma Invoice</div><button class="mc2" onclick="closeOv('pi-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div style="background:var(--amber-l);border:1px solid #f0d898;border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Atur DP</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="dp-type" onchange="calcDP()" style="width:120px;padding:8px 10px;font-size:13px">
+            <option value="pct">Persen (%)</option>
+            <option value="nom">Nominal (Rp)</option>
+          </select>
+          <input type="number" id="dp-val" value="50" min="0" oninput="calcDP()" style="flex:1;padding:8px 10px;font-size:13px">
+          <span id="dp-result" style="font-size:13px;font-weight:700;color:var(--amber);min-width:80px;text-align:right"></span>
+        </div>
+      </div>
+      <div id="pi-preview" style="border:1px solid var(--border);border-radius:10px;overflow:hidden"></div>
+    </div>
+    <div class="mf" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-g" onclick="closeOv('pi-ov')" style="flex:1">Tutup</button>
+      <button class="btn btn-g" onclick="printPI()" style="flex:1">🖨 Print/PDF</button>
+      <button class="btn btn-p" onclick="confirmDP()" style="flex:1">✓ DP Diterima</button>
+    </div>
+  </div>
+</div>
+
+<!-- PELUNASAN MODAL -->
+<div class="ov" id="pl-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt">Checkout & Pelunasan</div><button class="mc2" onclick="closeOv('pl-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb" id="pl-body"></div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeOv('pl-ov')" style="flex:1">Tutup</button>
+      <button class="btn btn-g" onclick="printPL()" style="flex:1">🖨 Print/PDF</button>
+      <button class="btn btn-p" onclick="finalizeCO()" style="flex:1">✓ Selesai</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOMER MODAL -->
+<div class="ov" id="cu-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="cu-title">Tambah Pelanggan</div><button class="mc2" onclick="closeOv('cu-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fgr"><label>Nama Pemilik *</label><input type="text" id="c-name" placeholder="Nama lengkap"></div>
+        <div class="fgr"><label>WhatsApp *</label><input type="text" id="c-wa" placeholder="08xxxxxxxxxx"></div>
+        <div class="fgr full"><label>Alamat</label><textarea id="c-alamat" placeholder="Jl. Contoh No. 1, Kota" style="min-height:52px"></textarea></div>
+        <div class="fgr full"><label>Catatan</label><textarea id="c-notes" placeholder="Alergi, preferensi, dll" style="min-height:52px"></textarea></div>
+        <div class="fgr full" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <label style="font-size:13px;font-weight:600;color:var(--text)">Daftar Kucing</label>
+            <button class="btn btn-g" style="padding:5px 12px;font-size:12px" onclick="addCatRow()">+ Tambah</button>
+          </div>
+          <div id="cat-rows"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeOv('cu-ov')">Batal</button>
+      <button class="btn btn-p" onclick="saveCust()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- CALENDAR DAY DETAIL -->
+<div class="ov" id="dd-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="dd-title">Detail Tanggal</div><button class="mc2" onclick="closeOv('dd-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb" id="dd-body"></div>
+    <div class="mf"><button class="btn btn-g" onclick="closeOv('dd-ov')">Tutup</button><button class="btn btn-p" onclick="closeOv('dd-ov');openBooking()">Buat Booking</button></div>
+  </div>
+</div>
+
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(247,246,242,.95);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="font-size:48px;animation:spin 2s linear infinite">🐾</div>
+  <div id="loading-msg" style="font-size:14px;font-weight:500;color:var(--text2)">Memuat data...</div>
+  <button id="loading-retry" onclick="loadAllData()" class="btn btn-p" style="display:none">Coba Lagi</button>
+</div>
+<style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   DATA
+   ============================================================ */
+const ROOM = {wd:70000, we:90000, ei:20000, lo:20000};
+
+let ADDONS = [
+  {id:'a1',name:'Vitamin C',price:15000},
+  {id:'a2',name:'Vitamin B Complex',price:15000},
+  {id:'a3',name:'Anthelmintic (Drontal)',price:45000},
+  {id:'a4',name:'Anthelmintic (merk lain)',price:30000},
+  {id:'a5',name:'Obat kutu',price:50000},
+  {id:'a6',name:'Obat diare',price:20000},
+];
+
+/* SLOTS — hanya tracking fisik */
+const SLOTS = Array.from({length:18}, (_,i) => ({id:i+1, status:'available', bookingId:null}));
+
+/* BOOKINGS — unit utama, pelanggan-first */
+let BOOKINGS = [
+  {
+    id:'BK-001', owner:'Budi Santoso', wa:'08111111111',
+    ci:'2026-07-01', co:'2026-07-10', eh:0, lh:0, notes:'',
+    cats:[
+      {name:'Whiskers', breed:'Persia', slotId:1, sa:['a1'], aq:{}, ma:[]},
+      {name:'Comel', breed:'Persia', slotId:17, sa:[], aq:{}, ma:[]}
+    ],
+    status:'occupied', dp:0, dpConfirmed:false, disc:0
+  },
+  {
+    id:'BK-002', owner:'Sari Widya', wa:'08222222222',
+    ci:'2026-07-01', co:'2026-07-05', eh:0, lh:0, notes:'',
+    cats:[{name:'Mochi', breed:'Maine Coon', slotId:2, sa:[], aq:{}, ma:[]}],
+    status:'occupied', dp:0, dpConfirmed:false, disc:0
+  },
+  {
+    id:'BK-003', owner:'Andi Pratama', wa:'08333333333',
+    ci:'2026-07-08', co:'2026-07-13', eh:2, lh:0, notes:'Pemalu',
+    cats:[{name:'Biscuit', breed:'Ragdoll', slotId:3, sa:[], aq:{}, ma:[]}],
+    status:'checkin', dp:0, dpConfirmed:false, disc:0
+  },
+  {
+    id:'BK-004', owner:'Maya Riani', wa:'08444444444',
+    ci:'2026-07-05', co:'2026-07-09', eh:0, lh:0, notes:'',
+    cats:[{name:'Cleo', breed:'British SH', slotId:5, sa:[], aq:{}, ma:[]}],
+    status:'checkout', dp:0, dpConfirmed:false, disc:0
+  },
+  {
+    id:'BK-005', owner:'Dewi Kusuma', wa:'08666666666',
+    ci:'2026-07-01', co:'2026-07-14', eh:0, lh:0, notes:'',
+    cats:[{name:'Luna', breed:'Anggora', slotId:7, sa:['a1','a3'], aq:{}, ma:[]}],
+    status:'occupied', dp:200000, dpConfirmed:true, disc:0
+  },
+  {
+    id:'BK-006', owner:'Lisa N.', wa:'08101010101',
+    ci:'2026-07-08', co:'2026-07-10', eh:0, lh:0, notes:'',
+    cats:[{name:'Kopi', breed:'DSH', slotId:13, sa:[], aq:{}, ma:[]}],
+    status:'checkin', dp:0, dpConfirmed:false, disc:0
+  },
+];
+
+let CUSTS = [
+  {name:'Budi Santoso', wa:'08111111111', alamat:'Jl. Kenanga No. 12, Jakarta Selatan', cats:[{name:'Whiskers',breed:'Persia'},{name:'Comel',breed:'Persia'}], v:5, sp:2150000, ls:'2026-07-01', notes:''},
+  {name:'Sari Widya', wa:'08222222222', alamat:'Jl. Melati No. 5, Bandung', cats:[{name:'Mochi',breed:'Maine Coon'}], v:3, sp:1200000, ls:'2026-07-01', notes:''},
+  {name:'Andi Pratama', wa:'08333333333', alamat:'Jl. Mawar No. 8, Jakarta Barat', cats:[{name:'Biscuit',breed:'Ragdoll'}], v:2, sp:780000, ls:'2026-07-08', notes:'Pemalu'},
+  {name:'Maya Riani', wa:'08444444444', alamat:'Jl. Anggrek No. 3, Depok', cats:[{name:'Cleo',breed:'British SH'}], v:7, sp:2900000, ls:'2026-07-05', notes:''},
+  {name:'Fajar Hidayat', wa:'08555555555', alamat:'Jl. Dahlia No. 21, Tangerang', cats:[{name:'Oreo',breed:'Domestic'}], v:4, sp:1560000, ls:'2026-06-20', notes:''},
+  {name:'Dewi Kusuma', wa:'08666666666', alamat:'Jl. Seruni No. 14, Bekasi', cats:[{name:'Luna',breed:'Anggora'}], v:6, sp:2640000, ls:'2026-07-01', notes:''},
+];
+
+let TXS = [
+  {date:'2026-07-01',id:'BK-010',owner:'Budi Santoso',cats:'Whiskers, Comel',n:4,base:800000,ao:60000,disc:0,dp:0,tot:860000},
+  {date:'2026-07-01',id:'BK-009',owner:'Dewi Kusuma',cats:'Luna',n:6,base:650000,ao:120000,disc:0,dp:200000,tot:770000},
+  {date:'2026-06-15',id:'BK-007',owner:'Fajar Hidayat',cats:'Oreo',n:4,base:430000,ao:40000,disc:0,dp:0,tot:470000},
+];
+
+/* Sync SLOTS from BOOKINGS on load */
+function syncSlots(){
+  SLOTS.forEach(s=>{s.status='available';s.bookingId=null;});
+  BOOKINGS.filter(b=>b.status!=='completed').forEach(b=>{
+    b.cats.forEach(cat=>{
+      const sl=SLOTS.find(s=>s.id===cat.slotId);
+      if(sl){sl.status=b.status;sl.bookingId=b.id;}
+    });
+  });
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+const rp = n => 'Rp '+Math.round(n).toLocaleString('id-ID');
+const nights = (a,b) => !a||!b ? 0 : Math.max(0,Math.round((new Date(b)-new Date(a))/86400000));
+function baseRate(ci,n){
+  let t=0;
+  for(let i=0;i<n;i++){const d=new Date(ci);d.setDate(d.getDate()+i);t+=(d.getDay()===0||d.getDay()===6)?ROOM.we:ROOM.wd;}
+  return t;
+}
+function calcCatAddonTot(cat){
+  let t=0;
+  (cat.sa||[]).forEach(aid=>{const a=ADDONS.find(x=>x.id===aid);const q=(cat.aq||{})[aid]||0;if(a&&q)t+=a.price*q;});
+  (cat.ma||[]).forEach(m=>t+=(m.price||0)*(m.qty||0));
+  return t;
+}
+function calcBkTotal(b){
+  const n=nights(b.ci,b.co);
+  if(!n) return 0;
+  const br=baseRate(b.ci,n);
+  const ef=(b.eh||0)*ROOM.ei, lf=(b.lh||0)*ROOM.lo;
+  let ao=0; b.cats.forEach(cat=>ao+=calcCatAddonTot(cat));
+  return br+ef+lf+ao;
+}
+function sbadge(st){
+  const m={occupied:['br','Menginap'],available:['bg','Tersedia'],checkout:['ba','Check-out'],checkin:['bb','Check-in'],completed:['bg','✓ Selesai']};
+  const[c,l]=m[st]||['bgr',st];
+  return `<span class="badge ${c}">${l}</span>`;
+}
+function occOn(ds){
+  const d=new Date(ds);
+  return BOOKINGS.filter(b=>{
+    if(b.status==='available') return false;
+    return d>=new Date(b.ci)&&d<new Date(b.co);
+  }).reduce((sum,b)=>sum+b.cats.length,0);
+}
+function invNo(b){ return b.id; }
+function invDate(){ return new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}); }
+function availSlots(){
+  syncSlots();
+  return SLOTS.filter(s=>s.status==='available');
+}
+
+/* ============================================================
+   RENDER SLOTS
+   ============================================================ */
+function renderSC(sl, fn){
+  const ic={available:'🏠',occupied:'🐱',checkout:'🧳',checkin:'🚪'};
+  let catName='Kosong';
+  if(sl.bookingId){
+    const b=BOOKINGS.find(x=>x.id===sl.bookingId);
+    const cat=b?b.cats.find(c=>c.slotId===sl.id):null;
+    if(cat) catName=cat.name;
+  }
+  return `<div class="sc ${sl.status}" onclick="${fn}(${sl.id})">
+    <div class="sdot"></div>
+    <div class="snum">Slot ${sl.id}</div>
+    <div class="sicon">${ic[sl.status]||'🏠'}</div>
+    <div class="sname" style="${sl.status==='available'?'color:var(--text3)':''}">${catName}</div>
+  </div>`;
+}
+function rMini(){
+  syncSlots();
+  document.getElementById('mini-slots').innerHTML=SLOTS.map(s=>renderSC(s,'openSlotDetail')).join('');
+}
+function rFull(){
+  syncSlots();
+  const av=SLOTS.filter(s=>s.status==='available').length, oc=18-av;
+  document.getElementById('full-slots').innerHTML=SLOTS.map(s=>renderSC(s,'openSlotDetail')).join('');
+  document.getElementById('sa').textContent=av;
+  document.getElementById('so').textContent=oc;
+  const b1=document.getElementById('bn-occ'); if(b1) b1.textContent=oc;
+  const b2=document.getElementById('snav-occ'); if(b2) b2.textContent=oc;
+  // Dashboard metrics
+  const dOcc=document.getElementById('d-occ'); if(dOcc) dOcc.innerHTML=oc+'<span style="font-size:14px;color:var(--text3)">/18</span>';
+  const dAvail=document.getElementById('d-avail'); if(dAvail) dAvail.textContent=av+' tersedia';
+  const dCi=document.getElementById('d-ci'); if(dCi) dCi.textContent=BOOKINGS.filter(b=>b.status==='checkin').length;
+  const dCo=document.getElementById('d-co'); if(dCo) dCo.textContent=BOOKINGS.filter(b=>b.status==='checkout').length;
+}
+
+/* Slot click → find booking */
+function openSlotDetail(slotId){
+  syncSlots();
+  const sl=SLOTS.find(s=>s.id===slotId);
+  if(!sl||sl.status==='available'){
+    toast('Slot '+slotId+' kosong — buat booking dulu');
+    return;
+  }
+  const b=BOOKINGS.find(x=>x.id===sl.bookingId);
+  if(b) openBkDetail(b.id);
+}
+
+/* ============================================================
+   BOOKING CARDS
+   ============================================================ */
+function bkCard(b){
+  const n=nights(b.ci,b.co);
+  const tot=calcBkTotal(b);
+  const sisa=Math.max(0,tot-b.disc-(b.dp||0));
+  const catChips=b.cats.map(cat=>`
+    <div class="bk-cat-row">
+      <div class="bk-cat-info">
+        <div class="bk-cat-name">🐱 ${cat.name} <span style="font-size:10px;color:var(--text3);font-weight:400">${cat.breed}</span></div>
+        <div class="bk-cat-sub">Slot ${cat.slotId}${cat.sa&&cat.sa.length?` · ${cat.sa.length} add-on`:''}</div>
+      </div>
+    </div>`).join('');
+
+  const actions = {
+    checkin:`
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">📄 Proforma Invoice</button>
+      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="doCheckin('${b.id}')">✓ Proses Check-in</button>`,
+    occupied:`
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">📄 Invoice</button>
+      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="openPL('${b.id}')">💳 Checkout & Bayar</button>`,
+    checkout:`
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">📄 Invoice</button>
+      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="openPL('${b.id}')">💳 Checkout & Bayar</button>`,
+    completed:`
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openBkDetail('${b.id}')">📋 Lihat Detail</button>
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">🖨 Cetak Invoice</button>`,
+  };
+
+  return `<div class="bk-card">
+    <div class="bk-header">
+      <div class="bk-owner-row">
+        <div class="bk-owner-name">${b.owner}</div>
+        ${sbadge(b.status)}
+      </div>
+      <div class="bk-date-row">
+        <span class="bk-date">📅 ${b.ci} → ${b.co} (${n} malam)</span>
+        ${b.dpConfirmed?`<span class="badge bb">DP ${rp(b.dp)}</span>`:''}
+      </div>
+      <div style="font-size:11px;color:var(--text3)">${b.id} · ${b.cats.length} kucing · ${b.wa}</div>
+    </div>
+    <div class="bk-cats">${catChips}</div>
+    <div class="bk-total-row">
+      <div>
+        <div class="bk-total">${rp(tot)}</div>
+        ${b.dp>0?`<div class="bk-dp-info">Sisa bayar: ${rp(sisa)}</div>`:''}
+      </div>
+      <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="openBkDetail('${b.id}')">Detail</button>
+    </div>
+    <div class="bk-actions">${actions[b.status]||''}</div>
+  </div>`;
+}
+
+function rAll(f){
+  let list=[...BOOKINGS];
+  if(f==='checkin') list=list.filter(b=>b.status==='checkin');
+  else if(f==='checkout') list=list.filter(b=>b.status==='checkout');
+  else if(f==='active') list=list.filter(b=>b.status==='occupied');
+  else if(f==='completed') list=list.filter(b=>b.status==='completed');
+  else list=list.filter(b=>b.status!=='completed'); // 'all' = aktif saja
+  const html=list.map(b=>bkCard(b)).join('');
+  document.getElementById('all-list').innerHTML=html||'<div class="es"><p>Tidak ada booking</p></div>';
+}
+function rRecent(){
+  const list=BOOKINGS.filter(b=>b.status!=='completed').slice(0,5);
+  document.getElementById('recent-list').innerHTML=list.map(b=>bkCard(b)).join('')||'<div class="es"><p>Belum ada booking</p></div>';
+}
+
+/* ============================================================
+   BOOKING DETAIL
+   ============================================================ */
+function openBkDetail(bkId){
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  if(!b) return;
+  const n=nights(b.ci,b.co), tot=calcBkTotal(b);
+  const br=baseRate(b.ci,n), ef=(b.eh||0)*ROOM.ei, lf=(b.lh||0)*ROOM.lo;
+  let html=`
+    <div class="dr"><span>ID Booking</span><span>${b.id}</span></div>
+    <div class="dr"><span>Pelanggan</span><span>${b.owner}</span></div>
+    <div class="dr"><span>WhatsApp</span><span style="color:var(--blue)">${b.wa}</span></div>
+    <div class="dr"><span>Check-in</span><span>${b.ci}${b.eh>0?' (Early +'+b.eh+'j)':''}</span></div>
+    <div class="dr"><span>Check-out</span><span>${b.co}${b.lh>0?' (Late +'+b.lh+'j)':''}</span></div>
+    <div class="dr"><span>Durasi</span><span>${n} malam</span></div>
+    <div class="dr"><span>Base rate</span><span>${rp(br+ef+lf)}</span></div>
+    ${b.notes?`<div class="dr"><span>Catatan</span><span>${b.notes}</span></div>`:''}
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Kucing (${b.cats.length})</div>`;
+  b.cats.forEach(cat=>{
+    const addonNames=(cat.sa||[]).map(aid=>{const a=ADDONS.find(x=>x.id===aid);return a?a.name:null;}).filter(Boolean);
+    html+=`<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-weight:500">🐱 ${cat.name} <span style="font-size:11px;color:var(--text3);font-weight:400">${cat.breed}</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:3px">Slot ${cat.slotId}${addonNames.length?' · '+addonNames.join(', '):''}</div>
+    </div>`;
+  });
+  html+=`</div>
+    <div class="dr" style="border-top:2px solid var(--border);margin-top:10px;padding-top:10px">
+      <span style="font-weight:600">Total Estimasi</span>
+      <span style="font-weight:700;color:var(--accent);font-size:16px">${rp(tot)}</span>
+    </div>
+    ${b.dp>0?`<div class="dr"><span>DP Diterima</span><span style="color:var(--blue)">− ${rp(b.dp)}</span></div>`:''}`;
+  document.getElementById('bd-title').textContent='Detail — '+b.owner;
+  document.getElementById('bd-body').innerHTML=html;
+  document.getElementById('bd-foot').innerHTML=`
+    <button class="btn btn-g" onclick="closeOv('bd-ov')" style="flex:none">Tutup</button>
+    <button class="btn btn-g" style="flex:1" onclick="closeOv('bd-ov');openPI('${b.id}')">📄 Invoice</button>
+    ${b.status==='checkin'?`<button class="btn btn-p" style="flex:1" onclick="closeOv('bd-ov');doCheckin('${b.id}')">✓ Check-in</button>`:''}
+    ${b.status==='occupied'||b.status==='checkout'?`<button class="btn btn-p" style="flex:1" onclick="closeOv('bd-ov');openPL('${b.id}')">💳 Checkout</button>`:''}`;
+  document.getElementById('bd-ov').classList.add('open');
+}
+
+/* ============================================================
+   BOOKING FORM
+   ============================================================ */
+let catRowCount=0;
+
+function openBooking(){
+  catRowCount=0;
+  document.getElementById('b-owner').innerHTML='<option value="">-- Pilih Pelanggan --</option>'+
+    CUSTS.map(c=>`<option value="${c.name}" data-wa="${c.wa}">${c.name} (${c.wa})</option>`).join('');
+  document.getElementById('b-wa').value='';
+  document.getElementById('b-notes').value='';
+  document.getElementById('b-ci').value=new Date().toISOString().split('T')[0];
+  document.getElementById('b-co').value='';
+  document.getElementById('b-cih').value='0';
+  document.getElementById('b-coh').value='0';
+  document.getElementById('cat-booking-rows').innerHTML='';
+  document.getElementById('pbox').style.display='none';
+  addCatBookingRow();
+  document.getElementById('bk-ov').classList.add('open');
+}
+
+function fillOwnerData(){
+  const sel=document.getElementById('b-owner');
+  const opt=sel.options[sel.selectedIndex];
+  document.getElementById('b-wa').value=opt?opt.dataset.wa||'':'';
+}
+
+function addCatBookingRow(prefillName='', prefillBreed=''){
+  catRowCount++;
+  const id=catRowCount;
+  const avail=availSlots();
+  const slotOpts=avail.map(s=>`<option value="${s.id}">Slot ${s.id}</option>`).join('');
+  const div=document.createElement('div');
+  div.id='cbrow-'+id;
+  div.className='cat-booking-row';
+  div.innerHTML=`
+    <div class="cat-booking-row-header">
+      <div class="cat-booking-row-title">🐱 Kucing ${id}</div>
+      ${id>1?`<button class="btn btn-d" style="padding:4px 10px;font-size:11px" onclick="document.getElementById('cbrow-${id}').remove();calcAllCats()">Hapus</button>`:''}
+    </div>
+    <div class="fg">
+      <div class="fgr"><label>Nama Kucing *</label><input type="text" id="cbname-${id}" placeholder="cth. Mochi" value="${prefillName}" oninput="calcAllCats()"></div>
+      <div class="fgr"><label>Ras</label><input type="text" id="cbbreed-${id}" placeholder="Persia, DSH..." value="${prefillBreed}"></div>
+      <div class="fgr full"><label>Pilih Slot *</label><select id="cbslot-${id}" onchange="calcAllCats()"><option value="">-- Pilih Slot --</option>${slotOpts}</select></div>
+      <div class="fgr full">
+        <label>Add-ons (opsional)</label>
+        <div class="asel" style="margin-top:4px">${ADDONS.map(a=>`<div class="aci" id="cbaci-${id}-${a.id}" onclick="togCbChk('${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}" onclick="event.stopPropagation();togCbChk('${id}','${a.id}')"><div class="acin">${a.name}</div><div class="acip">${rp(a.price)}/pmbr</div></div>`).join('')}</div>
+      </div>
+    </div>`;
+  document.getElementById('cat-booking-rows').appendChild(div);
+}
+
+function togCbChk(rowId, aid){
+  const chk=document.getElementById('cbchk-'+rowId+'-'+aid);
+  const el=document.getElementById('cbaci-'+rowId+'-'+aid);
+  chk.checked=!chk.checked;
+  el.classList.toggle('sel',chk.checked);
+}
+
+function calcAllCats(){
+  const ci=document.getElementById('b-ci').value;
+  const co=document.getElementById('b-co').value;
+  if(!ci||!co){document.getElementById('pbox').style.display='none';return;}
+  const n=nights(ci,co);
+  if(n<=0){document.getElementById('pbox').style.display='none';return;}
+  let base=0,wd=0,we=0;
+  for(let i=0;i<n;i++){const d=new Date(ci);d.setDate(d.getDate()+i);(d.getDay()===0||d.getDay()===6)?(base+=ROOM.we,we++):(base+=ROOM.wd,wd++);}
+  const ef=(parseInt(document.getElementById('b-cih').value)||0)*ROOM.ei;
+  const lf=(parseInt(document.getElementById('b-coh').value)||0)*ROOM.lo;
+  // Count valid cats
+  const rows=document.querySelectorAll('[id^="cbrow-"]');
+  const validCats=[...rows].filter(r=>{
+    const id=r.id.replace('cbrow-','');
+    return document.getElementById('cbname-'+id)?.value?.trim() && document.getElementById('cbslot-'+id)?.value;
+  });
+  if(!validCats.length){document.getElementById('pbox').style.display='none';return;}
+  const totalBase=(base+ef+lf)*validCats.length;
+  const lbl=wd>0&&we>0?`${wd}h weekday + ${we}h weekend`:we>0?`${n} malam (weekend)`:`${n} malam (weekday)`;
+  let priceRowsHtml=`<div class="pr"><span>${lbl} × ${validCats.length} kucing</span><span>${rp(totalBase)}</span></div>`;
+  if(ef>0) priceRowsHtml+=`<div class="pr"><span>Early check-in × ${validCats.length}</span><span>${rp(ef*validCats.length)}</span></div>`;
+  if(lf>0) priceRowsHtml+=`<div class="pr"><span>Late check-out × ${validCats.length}</span><span>${rp(lf*validCats.length)}</span></div>`;
+  document.getElementById('price-rows').innerHTML=priceRowsHtml;
+  document.getElementById('pc-total').textContent=rp(totalBase);
+  document.getElementById('pbox').style.display='block';
+}
+
+function saveBk(){
+  const owner=document.getElementById('b-owner').value;
+  const ci=document.getElementById('b-ci').value;
+  const co=document.getElementById('b-co').value;
+  if(!owner||!ci||!co){toast('⚠ Lengkapi pelanggan & tanggal');return;}
+  const rows=document.querySelectorAll('[id^="cbrow-"]');
+  const cats=[];
+  let valid=true;
+  rows.forEach(r=>{
+    const id=r.id.replace('cbrow-','');
+    const name=document.getElementById('cbname-'+id)?.value?.trim();
+    const breed=document.getElementById('cbbreed-'+id)?.value?.trim()||'DSH';
+    const slotId=parseInt(document.getElementById('cbslot-'+id)?.value);
+    if(!name||!slotId){valid=false;return;}
+    const sa=ADDONS.filter(a=>document.getElementById('cbchk-'+id+'-'+a.id)?.checked).map(a=>a.id);
+    cats.push({name,breed,slotId,sa,aq:{},ma:[]});
+  });
+  if(!valid||!cats.length){toast('⚠ Isi nama kucing & slot untuk setiap kucing');return;}
+  // Check slot conflicts
+  const usedSlots=cats.map(c=>c.slotId);
+  if(new Set(usedSlots).size!==usedSlots.length){toast('⚠ Slot tidak boleh sama');return;}
+  const bkId='BK-'+String(BOOKINGS.length+1).padStart(3,'0');
+  const newBk={
+    id:bkId, owner,
+    wa:document.getElementById('b-wa').value,
+    ci, co,
+    eh:parseInt(document.getElementById('b-cih').value)||0,
+    lh:parseInt(document.getElementById('b-coh').value)||0,
+    notes:document.getElementById('b-notes').value,
+    cats, status:'checkin', dp:0, dpConfirmed:false, disc:0
+  };
+  // Save to API
+  showLoading('Menyimpan booking...');
+  apiPost({
+    action: 'saveBooking',
+    owner, wa: newBk.wa, ci, co,
+    eh: newBk.eh, lh: newBk.lh,
+    notes: newBk.notes,
+    cats: cats.map(cat => ({
+      name: cat.name, breed: cat.breed, slotId: cat.slotId,
+      sa: cat.sa, aq: cat.aq, ma: cat.ma
+    }))
+  }).then(res => {
+    hideLoading();
+    if(res.success){
+      // Update local ID with server-assigned ID
+      newBk.id = res.booking_id;
+      BOOKINGS.unshift(newBk);
+      syncSlots();
+      closeOv('bk-ov');
+      rMini();rFull();rRecent();
+      toast('✓ Booking '+owner+' ('+cats.length+' kucing) tersimpan');
+      setTimeout(()=>openPI(res.booking_id), 400);
+    } else {
+      toast('⚠ Gagal simpan: '+(res.error||'unknown'));
+    }
+  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+}
+
+/* ============================================================
+   CHECK-IN
+   ============================================================ */
+function doCheckin(bkId){
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  if(!b) return;
+  showLoading('Memproses check-in...');
+  apiPost({action:'checkin', booking_id: bkId}).then(res=>{
+    hideLoading();
+    if(res.success){
+      b.status='occupied';
+      syncSlots();
+      closeOv('bd-ov');closeOv('bk-ov');
+      rMini();rFull();rRecent();rAll('all');
+      toast('✓ Check-in '+b.owner+' berhasil!');
+    } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
+  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+}
+
+/* ============================================================
+   PROFORMA INVOICE
+   ============================================================ */
+let piId=null, plId=null;
+
+function calcDP(){
+  const b=BOOKINGS.find(x=>x.id===piId);
+  if(!b) return;
+  const est=calcBkTotal(b);
+  const type=document.getElementById('dp-type').value;
+  const val=parseFloat(document.getElementById('dp-val').value)||0;
+  const dpAmt=type==='pct'?Math.round(est*Math.min(val,100)/100):Math.min(val,est);
+  document.getElementById('dp-result').textContent=rp(dpAmt);
+  b._dpAmt=dpAmt;
+  renderPIPreview(b,dpAmt);
+}
+
+
+
+/* ============================================================
+   API CONFIG — Google Apps Script
+   ============================================================ */
+const API_URL = 'https://script.google.com/macros/s/AKfycbzYujbrGQ5L7b4NXMVWSfPG6HC1cbkxMa0jwi9whav8xws6WnVAhsObQVrHnuc4Gd_pSg/exec';
+
+// Loading state
+let APP_READY = false;
+let LOADING_ERRORS = [];
+
+// Show/hide loading overlay
+function showLoading(msg='Memuat data...'){
+  document.getElementById('loading-overlay').style.display='flex';
+  document.getElementById('loading-msg').textContent=msg;
+}
+function hideLoading(){ document.getElementById('loading-overlay').style.display='none'; }
+
+// Generic API GET
+async function apiGet(action){
+  const res = await fetch(`${API_URL}?action=${action}`);
+  return res.json();
+}
+
+// Generic API POST
+async function apiPost(data){
+  const res = await fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data),
+    redirect: 'follow',
+  });
+  return res.json();
+}
+
+// Load ALL data from Sheets on startup
+async function loadAllData(){
+  showLoading('Menghubungkan ke database...');
+  try {
+    // Load in parallel
+    const [bkRes, custRes, addonRes, txRes, settRes] = await Promise.all([
+      apiGet('getBookings'),
+      apiGet('getCustomers'),
+      apiGet('getAddons'),
+      apiGet('getTransactions'),
+      apiGet('getSettings'),
+    ]);
+
+    if(bkRes.success){
+      // Rebuild BOOKINGS from API — normalize dates to string
+      BOOKINGS.length = 0;
+      bkRes.data.forEach(b => {
+        b.ci = b.ci ? String(b.ci).split('T')[0] : '';
+        b.co = b.co ? String(b.co).split('T')[0] : '';
+        b.completedAt = b.completedAt ? String(b.completedAt).split('T')[0] : '';
+        BOOKINGS.push(b);
+      });
+    }
+
+    if(custRes.success){
+      CUSTS.length = 0;
+      custRes.data.forEach(c => CUSTS.push(c));
+    }
+
+    if(addonRes.success){
+      ADDONS.length = 0;
+      addonRes.data.forEach(a => ADDONS.push(a));
+    }
+
+    if(txRes.success){
+      TXS.length = 0;
+      txRes.data.forEach(t => {
+        t.date = t.date ? String(t.date).split('T')[0] : '';
+        TXS.push(t);
+      });
+    }
+
+    if(settRes.success){
+      const s = settRes.data;
+      if(s.weekday_rate)  ROOM.wd = Number(s.weekday_rate);
+      if(s.weekend_rate)  ROOM.we = Number(s.weekend_rate);
+      if(s.early_checkin) ROOM.ei = Number(s.early_checkin);
+      if(s.late_checkout) ROOM.lo = Number(s.late_checkout);
+      // Update SC_INFO
+      if(s.bank_no)    SC_INFO.bank_no    = s.bank_no;
+      if(s.bank_name)  SC_INFO.bank_name  = s.bank_name;
+      if(s.phone)      SC_INFO.phone      = s.phone;
+      if(s.email)      SC_INFO.email      = s.email;
+      if(s.address)    SC_INFO.address    = s.address;
+      // Update settings inputs
+      const wd=document.getElementById('s-wd'); if(wd) wd.value=ROOM.wd;
+      const we=document.getElementById('s-we'); if(we) we.value=ROOM.we;
+      const ei=document.getElementById('s-ei'); if(ei) ei.value=ROOM.ei;
+      const lo=document.getElementById('s-lo'); if(lo) lo.value=ROOM.lo;
+    }
+
+    syncSlots();
+    APP_READY = true;
+    hideLoading();
+    // Re-render current page
+    rMini(); rFull(); rRecent(); rAddonList();
+    updateClock();
+
+  } catch(err){
+    hideLoading();
+    document.getElementById('loading-overlay').style.display='flex';
+    document.getElementById('loading-msg').textContent='⚠ Gagal terhubung ke database. Cek koneksi internet.';
+    document.getElementById('loading-retry').style.display='inline-flex';
+    console.error('Load error:', err);
+  }
+}
+
+
+/* ============================================================
+   INVOICE BUILDER — format sesuai invoice manual Sincerely Cats
+   ============================================================ */
+const SC_INFO = {
+  phone: '+628-789-020-2908',
+  email: 'sincerelycats.official2gmail.com',
+  address: 'Jl. Nusa Jaya No.207B, Bintaro, Tangerang Selatan',
+  bank_no: '0650955234',
+  bank_name: 'Bank BCA a/n Sheila Rafa Azzahra',
+};
+
+function fmtDateID(ds){
+  if(!ds) return '—';
+  const d=new Date(ds);
+  return d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+}
+function fmtDateEN(ds){
+  if(!ds) return '—';
+  const d=new Date(ds);
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+}
+
+function buildInvoiceHTML(b, opts={}){
+  // opts: { isProforma, dpAmt, showDiscInput, finalTotal }
+  const n = nights(b.ci, b.co);
+  const isProforma = opts.isProforma !== false;
+
+  // Split nights into weekday/weekend per cat
+  let wdNights=0, weNights=0;
+  for(let i=0;i<n;i++){
+    const d=new Date(b.ci);d.setDate(d.getDate()+i);
+    (d.getDay()===0||d.getDay()===6)?weNights++:wdNights++;
+  }
+  const numCats = b.cats.length;
+  const wdTotal = wdNights * ROOM.wd * numCats;
+  const weTotal = weNights * ROOM.we * numCats;
+  const ef = (b.eh||0)*ROOM.ei*numCats;
+  const lf = (b.lh||0)*ROOM.lo*numCats;
+
+  // Add-ons: collect per cat (for proforma show names, for final show qty x price)
+  let addonLines = [];
+  b.cats.forEach(cat => {
+    (cat.sa||[]).forEach(aid => {
+      const a = ADDONS.find(x=>x.id===aid);
+      if(!a) return;
+      const q = (cat.aq||{})[aid]||0;
+      const existing = addonLines.find(l=>l.id===aid);
+      if(existing){ existing.qty+=q; existing.cats++; }
+      else addonLines.push({id:aid, name:a.name, price:a.price, qty:q, cats:1});
+    });
+    (cat.ma||[]).forEach(m => {
+      const existing = addonLines.find(l=>l.name===m.name&&l.price===m.price&&l.id==='manual');
+      if(existing){ existing.qty+=(m.qty||0); existing.cats++; }
+      else addonLines.push({id:'manual',name:m.name,price:m.price,qty:m.qty||0,cats:1});
+    });
+  });
+
+  // Totals
+  const baseTotal = wdTotal + weTotal + ef + lf;
+  const addonTotal = addonLines.reduce((s,l)=>s+(l.price*(l.qty||0)),0);
+  const subTotal = baseTotal + addonTotal;
+  const disc = b.disc||0;
+  const grandTotal = Math.max(0, subTotal - disc);
+  const dpAmt = opts.dpAmt !== undefined ? opts.dpAmt : (b.dp||0);
+  const sisaBayar = Math.max(0, grandTotal - dpAmt);
+
+  // Cust alamat
+  const cust = CUSTS.find(x=>x.name===b.owner);
+  const alamat = cust?.alamat||'';
+
+  // Table rows
+  let tableRows = '';
+  if(wdNights>0) tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Cat Hotel Weekdays</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${wdNights}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(ROOM.wd)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(wdTotal)}</td>
+    </tr>`;
+  if(weNights>0) tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Cat Hotel Weekend</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${weNights}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(ROOM.we)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(weTotal)}</td>
+    </tr>`;
+  if(ef>0) tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Early Check-in</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${b.eh}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(ROOM.ei)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(ef)}</td>
+    </tr>`;
+  if(lf>0) tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Late Check-out</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${b.lh}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(ROOM.lo)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(lf)}</td>
+    </tr>`;
+  addonLines.forEach(l => {
+    const isProformaAddon = isProforma && l.qty===0;
+    tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${l.name}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center;color:${isProformaAddon?'#9c9a92':''}">${isProformaAddon?'—':l.qty}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(l.price)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500;color:${isProformaAddon?'#9c9a92':''}">${isProformaAddon?'<em style="font-size:11px">Dihitung saat checkout</em>':rp(l.price*l.qty)}</td>
+    </tr>`;
+  });
+  // Empty rows to match invoice style (min 5 rows)
+  const totalRows = (wdNights>0?1:0)+(weNights>0?1:0)+(ef>0?1:0)+(lf>0?1:0)+addonLines.length;
+  for(let i=totalRows;i<4;i++) tableRows+=`<tr><td style="padding:10px 16px;border-bottom:1px solid #e8e6e0">&nbsp;</td><td style="border-bottom:1px solid #e8e6e0"></td><td style="border-bottom:1px solid #e8e6e0"></td><td style="border-bottom:1px solid #e8e6e0"></td><td style="border-bottom:1px solid #e8e6e0"></td></tr>`;
+
+  // Kucing info
+  const catInfo = b.cats.map(cat=>`🐱 ${cat.name} (${cat.breed}) · Slot ${cat.slotId}`).join('<br>');
+
+  return `<div style="font-family:'DM Sans',sans-serif;background:#fff;padding:32px;max-width:640px;margin:0 auto;color:#1a1916">
+
+    <!-- HEADER -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="font-size:48px;font-weight:800;color:#e84c2b;letter-spacing:-2px;line-height:1">invoice</div>
+        <div style="line-height:1.2">
+          <div style="font-size:11px;font-weight:600;color:#1a1916">No.</div>
+          <div style="font-size:18px;font-weight:700;color:#1a1916">#${b.id}</div>
+          ${isProforma?`<div style="display:inline-block;background:#fdf3e3;color:#c47a15;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:4px">PROFORMA</div>`:''}
+        </div>
+      </div>
+      <div style="font-size:42px;line-height:1">🐱</div>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #1a1916;margin:12px 0 16px">
+
+    <div style="text-align:right;font-size:12px;color:#6b6860;margin-bottom:20px">Date: ${fmtDateEN(new Date().toISOString().split('T')[0])}</div>
+
+    <!-- INVOICE TO -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#1a1916;margin-bottom:6px">Invoice To:</div>
+        <div style="font-size:20px;font-weight:700;color:#e84c2b;margin-bottom:4px">${b.owner}</div>
+        <div style="font-size:13px;color:#1a1916;margin-bottom:4px">${b.wa}</div>
+        <div style="font-size:13px;font-weight:700;color:#1a1916">Period of stay: ${fmtDateEN(b.ci)} – ${fmtDateEN(b.co)}</div>
+        <div style="font-size:12px;color:#6b6860;margin-top:6px">${catInfo}</div>
+      </div>
+      <div style="font-size:12px;color:#6b6860;line-height:1.6">${alamat||'&nbsp;'}</div>
+    </div>
+
+    <!-- TABLE -->
+    <table style="width:100%;border-collapse:collapse;border:1px solid #d4d2c8;border-radius:10px;overflow:hidden">
+      <thead>
+        <tr style="background:#fff">
+          <th style="padding:12px 16px;text-align:left;font-size:12px;font-weight:700;color:#e84c2b;border-bottom:2px solid #d4d2c8;width:40%">DESCRIPTION</th>
+          <th style="padding:12px 16px;text-align:center;font-size:12px;font-weight:700;color:#e84c2b;border-bottom:2px solid #d4d2c8">CAT/S</th>
+          <th style="padding:12px 16px;text-align:center;font-size:12px;font-weight:700;color:#e84c2b;border-bottom:2px solid #d4d2c8">NIGHT/S</th>
+          <th style="padding:12px 16px;font-size:12px;font-weight:700;color:#e84c2b;border-bottom:2px solid #d4d2c8">PRICE</th>
+          <th style="padding:12px 16px;font-size:12px;font-weight:700;color:#e84c2b;border-bottom:2px solid #d4d2c8">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+
+    <!-- SUMMARY BOX -->
+    <div style="display:flex;justify-content:flex-end;margin-top:0">
+      <div style="background:#1a3a5c;color:#fff;padding:20px 24px;min-width:280px;border-radius:0 0 10px 10px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+          <span>Sub Total:</span><span>${rp(subTotal)}</span>
+        </div>
+        ${disc>0?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;color:#f0c98a">
+          <span>Diskon:</span><span>− ${rp(disc)}</span>
+        </div>`:''}
+        ${addonTotal>0&&!isProforma?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+          <span>Add-ons:</span><span>${rp(addonTotal)}</span>
+        </div>`:''}
+        <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;border-top:1px solid rgba(255,255,255,.3);padding-top:10px;margin-top:4px;margin-bottom:10px">
+          <span>Total Amount:</span><span style="color:#f0c04a">${rp(grandTotal)}</span>
+        </div>
+        ${dpAmt>0?`<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#f0c04a">
+          <span>DP${opts.dpPct?` (${opts.dpPct}%)`:b.dpConfirmed?'':' ('+Math.round(dpAmt/grandTotal*100)+'%)'}:</span>
+          <span>${rp(dpAmt)}</span>
+        </div>`:''}
+        ${!isProforma&&dpAmt>0&&sisaBayar>0?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)">
+          <span>Sisa Bayar:</span><span style="color:#f0c04a;font-weight:700">${rp(sisaBayar)}</span>
+        </div>`:''}
+      </div>
+    </div>
+
+    <!-- PAYMENT METHOD -->
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e4e2d8">
+      <div style="font-size:12px;font-weight:700;color:#e84c2b;margin-bottom:6px">PAYMENT METHOD</div>
+      <div style="font-size:13px;margin-bottom:2px">No. Rekening: <strong style="color:#e84c2b">${SC_INFO.bank_no}</strong></div>
+      <div style="font-size:13px;font-weight:700">${SC_INFO.bank_name}</div>
+    </div>
+
+    <!-- FOOTER -->
+    <hr style="border:none;border-top:1px solid #e4e2d8;margin:20px 0 14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div style="font-size:14px;font-weight:700;color:#1a1916">Sincerely, Cats</div>
+      <div style="text-align:right;font-size:11px;color:#6b6860;line-height:1.7">
+        ${SC_INFO.phone}<br>
+        ${SC_INFO.email}<br>
+        ${SC_INFO.address}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderPIPreview(b, dpAmt){
+  // Get DP % for label
+  const est = calcBkTotal(b);
+  const dpPct = est>0 ? Math.round(dpAmt/est*100) : 0;
+  document.getElementById('pi-preview').innerHTML = buildInvoiceHTML(b, {
+    isProforma: true,
+    dpAmt,
+    dpPct,
+  });
+}
+
+function openPI(bkId){
+  piId=bkId;
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  if(!b) return;
+  document.getElementById('dp-type').value='pct';
+  document.getElementById('dp-val').value='50';
+  calcDP();
+  closeOv('bd-ov');
+  document.getElementById('pi-ov').classList.add('open');
+}
+
+function confirmDP(){
+  const b=BOOKINGS.find(x=>x.id===piId);
+  if(!b) return;
+  const dpAmt=b._dpAmt||0;
+  showLoading('Menyimpan DP...');
+  apiPost({action:'confirmDP', booking_id: piId, dp_amount: dpAmt}).then(res=>{
+    hideLoading();
+    if(res.success){
+      b.dp=dpAmt; b.dpConfirmed=true;
+      closeOv('pi-ov');
+      rAll('all');rRecent();
+      toast('✓ DP '+rp(dpAmt)+' tercatat untuk '+b.owner);
+    } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
+  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+}
+
+function printPI(){
+  const b = BOOKINGS.find(x=>x.id===piId);
+  if(!b) return;
+  const est = calcBkTotal(b);
+  const dpAmt = b._dpAmt || b.dp || 0;
+  const dpPct = est>0 ? Math.round(dpAmt/est*100) : 0;
+  const html = buildInvoiceHTML(b, {isProforma:true, dpAmt, dpPct});
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Proforma Invoice - ${b.id}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff}@media print{@page{margin:16mm}}</style>
+  </head><body>${html}<script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+  w.document.close();
+}
+
+/* ============================================================
+   CHECKOUT / PELUNASAN
+   ============================================================ */
+function openPL(bkId){
+  plId=bkId;
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  if(!b) return;
+  const n=nights(b.ci,b.co);
+  const br=baseRate(b.ci,n)*b.cats.length;
+  const ef=(b.eh||0)*ROOM.ei*b.cats.length;
+  const lf=(b.lh||0)*ROOM.lo*b.cats.length;
+
+  // Build addon qty per cat
+  let addonRows='';
+  b.cats.forEach(cat=>{
+    addonRows+=`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">🐱 ${cat.name}</div>`;
+    (cat.sa||[]).forEach(aid=>{
+      const a=ADDONS.find(x=>x.id===aid);if(!a)return;
+      const q=(cat.aq||{})[aid]||0;
+      addonRows+=`<div class="cqitem"><div class="cqname"><div class="cqn">${a.name}</div><div class="cqp">${rp(a.price)} × pemberian</div></div><div class="cqbox"><button onclick="adjCatQty('${bkId}','${cat.name}','${aid}',-1)">−</button><input type="number" min="0" value="${q}" id="qty-${cat.name}-${aid}" onchange="setCatQty('${bkId}','${cat.name}','${aid}',this.value)"><button onclick="adjCatQty('${bkId}','${cat.name}','${aid}',1)">+</button></div><div class="cqsub" id="qs-${cat.name}-${aid}">${rp(a.price*q)}</div></div>`;
+    });
+    (cat.ma||[]).forEach((m,mi)=>{
+      const q=m.qty||0;
+      addonRows+=`<div class="cqitem"><div class="cqname"><div class="cqn">${m.name} <span class="badge bgr" style="font-size:10px">manual</span></div><div class="cqp">${rp(m.price)} × pemberian</div></div><div class="cqbox"><button onclick="adjManualQty('${bkId}','${cat.name}',${mi},-1)">−</button><input type="number" min="0" value="${q}" id="mqty-${cat.name}-${mi}"><button onclick="adjManualQty('${bkId}','${cat.name}',${mi},1)">+</button></div><div class="cqsub" id="mqs-${cat.name}-${mi}">${rp(m.price*q)}</div></div>`;
+    });
+    addonRows+='</div>';
+  });
+
+  document.getElementById('pl-body').innerHTML=`
+    <div class="dr"><span>Booking</span><span>${b.id} · ${b.owner}</span></div>
+    <div class="dr"><span>Kucing</span><span>${b.cats.map(c=>c.name).join(', ')}</span></div>
+    <div class="dr"><span>Durasi</span><span>${n} malam (${b.ci} → ${b.co})</span></div>
+    <div class="dr"><span>Kamar (${b.cats.length} kucing)</span><span>${rp(br)}</span></div>
+    ${ef>0?`<div class="dr"><span>Early check-in</span><span>${rp(ef)}</span></div>`:''}
+    ${lf>0?`<div class="dr"><span>Late check-out</span><span>${rp(lf)}</span></div>`:''}
+    ${addonRows?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Jumlah Pemberian Add-on</div>${addonRows}</div>`:''}
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Diskon (opsional)</div>
+      <div style="display:flex;gap:8px;align-items:center;background:var(--amber-l);border:1px solid #f0d898;border-radius:8px;padding:10px">
+        <select id="pl-disc-type" onchange="calcPL()" style="width:110px;padding:7px 8px;font-size:12px"><option value="none">Tidak ada</option><option value="pct">Persen (%)</option><option value="nom">Nominal (Rp)</option></select>
+        <input type="number" id="pl-disc-val" placeholder="0" min="0" oninput="calcPL()" style="flex:1;padding:7px 8px;font-size:12px" disabled>
+        <span id="pl-disc-result" style="font-size:12px;font-weight:600;color:var(--red);min-width:60px;text-align:right"></span>
+      </div>
+    </div>
+    <div style="background:var(--accent-l);border-radius:10px;padding:14px;margin-top:14px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text2);margin-bottom:5px"><span>Subtotal</span><span id="pl-sub">${rp(calcBkTotal(b))}</span></div>
+      <div id="pl-disc-row" style="display:flex;justify-content:space-between;font-size:13px;color:var(--text2);margin-bottom:5px;display:none"><span>Diskon</span><span id="pl-disc-show" style="color:var(--red)"></span></div>
+      ${b.dp>0?`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text2);margin-bottom:8px"><span>DP diterima</span><span style="color:var(--blue)">− ${rp(b.dp)}</span></div>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #b8dece;padding-top:10px">
+        <span style="font-size:14px;font-weight:700">Total Bayar</span>
+        <span style="font-size:20px;font-weight:700;color:var(--accent)" id="pl-final">${rp(Math.max(0,calcBkTotal(b)-b.disc-(b.dp||0)))}</span>
+      </div>
+    </div>`;
+  closeOv('bd-ov');
+  document.getElementById('pl-ov').classList.add('open');
+}
+
+function adjCatQty(bkId,catName,aid,d){
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  const cat=b.cats.find(c=>c.name===catName);
+  if(!cat.aq) cat.aq={};
+  cat.aq[aid]=Math.max(0,(cat.aq[aid]||0)+d);
+  document.getElementById('qty-'+catName+'-'+aid).value=cat.aq[aid];
+  const a=ADDONS.find(x=>x.id===aid);
+  document.getElementById('qs-'+catName+'-'+aid).textContent=rp(a.price*cat.aq[aid]);
+  updatePLTotal(b);
+}
+function setCatQty(bkId,catName,aid,v){
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  const cat=b.cats.find(c=>c.name===catName);
+  if(!cat.aq) cat.aq={};
+  cat.aq[aid]=Math.max(0,parseInt(v)||0);
+  const a=ADDONS.find(x=>x.id===aid);
+  document.getElementById('qs-'+catName+'-'+aid).textContent=rp(a.price*cat.aq[aid]);
+  updatePLTotal(b);
+}
+function adjManualQty(bkId,catName,mi,d){
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  const cat=b.cats.find(c=>c.name===catName);
+  cat.ma[mi].qty=Math.max(0,(cat.ma[mi].qty||0)+d);
+  document.getElementById('mqty-'+catName+'-'+mi).value=cat.ma[mi].qty;
+  document.getElementById('mqs-'+catName+'-'+mi).textContent=rp(cat.ma[mi].price*cat.ma[mi].qty);
+  updatePLTotal(b);
+}
+function updatePLTotal(b){
+  const sub=calcBkTotal(b);
+  document.getElementById('pl-sub').textContent=rp(sub);
+  const disc=b.disc||0;
+  const sisa=Math.max(0,sub-disc-(b.dp||0));
+  document.getElementById('pl-final').textContent=rp(sisa);
+}
+function calcPL(){
+  const b=BOOKINGS.find(x=>x.id===plId);
+  const sub=calcBkTotal(b);
+  const type=document.getElementById('pl-disc-type').value;
+  const valEl=document.getElementById('pl-disc-val');
+  if(type==='none'){valEl.disabled=true;valEl.value='';b.disc=0;document.getElementById('pl-disc-row').style.display='none';}
+  else{
+    valEl.disabled=false;
+    const val=parseFloat(valEl.value)||0;
+    b.disc=type==='pct'?Math.round(sub*Math.min(val,100)/100):Math.min(val,sub);
+    document.getElementById('pl-disc-result').textContent=b.disc>0?'− '+rp(b.disc):'';
+    document.getElementById('pl-disc-row').style.display='flex';
+    document.getElementById('pl-disc-show').textContent='− '+rp(b.disc);
+  }
+  document.getElementById('pl-final').textContent=rp(Math.max(0,sub-b.disc-(b.dp||0)));
+}
+function printPL(){
+  const b = BOOKINGS.find(x=>x.id===plId);
+  if(!b) return;
+  const html = buildInvoiceHTML(b, {isProforma:false, dpAmt: b.dp||0});
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice - ${b.id}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff}@media print{@page{margin:16mm}}</style>
+  </head><body>${html}<script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+  w.document.close();
+}
+function finalizeCO(){
+  const b=BOOKINGS.find(x=>x.id===plId);
+  if(!b) return;
+  const sub=calcBkTotal(b), disc=b.disc||0, dp=b.dp||0;
+  const tot=Math.max(0,sub-disc);
+  const aoAmt=b.cats.reduce((s,cat)=>s+calcCatAddonTot(cat),0);
+  const baseAmt=sub-aoAmt;
+  showLoading('Memproses checkout...');
+  apiPost({
+    action: 'checkout',
+    booking_id: b.id,
+    owner: b.owner,
+    nights: nights(b.ci,b.co),
+    base_amount: baseAmt,
+    addon_amount: aoAmt,
+    disc, dp,
+    final_total: tot,
+    cats: b.cats.map(cat=>({name:cat.name,slotId:cat.slotId,aq:cat.aq||{},ma:cat.ma||[]}))
+  }).then(res=>{
+    hideLoading();
+    if(res.success){
+      // Update local state
+      TXS.unshift({
+        date:new Date().toISOString().split('T')[0],
+        id:b.id, owner:b.owner,
+        cats:b.cats.map(c=>c.name).join(', '),
+        n:nights(b.ci,b.co),
+        base:baseAmt, ao:aoAmt, disc, dp, tot
+      });
+      b.status='completed';
+      b.completedAt=new Date().toISOString().split('T')[0];
+      b.finalTotal=tot;
+      syncSlots();
+      closeOv('pl-ov');
+      rMini();rFull();rRecent();rAll('all');
+      toast('✓ Checkout '+b.owner+' selesai. Total: '+rp(tot));
+    } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
+  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+}
+
+/* ============================================================
+   CUSTOMERS
+   ============================================================ */
+let editCustIdx=null, catRowCt=0;
+function rCust(){
+  document.getElementById('cust-sub').textContent=CUSTS.length+' pelanggan terdaftar';
+  document.getElementById('cust-list').innerHTML=CUSTS.map((c,i)=>{
+    const ini=c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return`<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div class="cavatar">${ini}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${c.name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.wa}</div>
+        ${c.alamat?`<div style="font-size:11px;color:var(--text3);margin-top:1px">📍 ${c.alamat}</div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${c.cats.map(k=>`<span style="background:var(--purple-l);color:var(--purple);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">🐱 ${k.name}${k.breed?' · '+k.breed:''}</span>`).join('')}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <div style="font-size:13px;font-weight:600;color:var(--accent)">${rp(c.sp)}</div>
+        <div style="font-size:11px;color:var(--text3)">${c.v}x kunjungan</div>
+        <button class="btn btn-g" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="openEditCust(${i})">Edit</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openCust(){
+  editCustIdx=null;catRowCt=0;
+  document.getElementById('cu-title').textContent='Tambah Pelanggan';
+  document.getElementById('c-name').value='';document.getElementById('c-wa').value='';
+  document.getElementById('c-alamat').value='';document.getElementById('c-notes').value='';
+  document.getElementById('cat-rows').innerHTML='';
+  addCatRow();
+  document.getElementById('cu-ov').classList.add('open');
+}
+function openEditCust(idx){
+  editCustIdx=idx;catRowCt=0;
+  const c=CUSTS[idx];
+  document.getElementById('cu-title').textContent='Edit Pelanggan';
+  document.getElementById('c-name').value=c.name;document.getElementById('c-wa').value=c.wa;
+  document.getElementById('c-alamat').value=c.alamat||'';document.getElementById('c-notes').value=c.notes||'';
+  document.getElementById('cat-rows').innerHTML='';
+  if(!c.cats.length) addCatRow(); else c.cats.forEach(k=>addCatRow(k.name,k.breed));
+  document.getElementById('cu-ov').classList.add('open');
+}
+function addCatRow(name='',breed=''){
+  catRowCt++;const id=catRowCt;
+  const div=document.createElement('div');div.id='catrow-'+id;
+  div.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
+  div.innerHTML=`<input type="text" placeholder="Nama kucing" id="cn-${id}" value="${name}" style="flex:2"><input type="text" placeholder="Ras" id="cr-${id}" value="${breed}" style="flex:1.5"><button class="btn btn-g" style="padding:8px 10px;flex-shrink:0" onclick="document.getElementById('catrow-${id}').remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`;
+  document.getElementById('cat-rows').appendChild(div);
+}
+function saveCust(){
+  const name=document.getElementById('c-name').value.trim();
+  if(!name){toast('⚠ Nama wajib diisi');return;}
+  const cats=[];
+  document.querySelectorAll('[id^="catrow-"]').forEach(row=>{
+    const id=row.id.replace('catrow-','');
+    const cn=document.getElementById('cn-'+id)?.value?.trim();
+    const cr=document.getElementById('cr-'+id)?.value?.trim();
+    if(cn) cats.push({name:cn,breed:cr||''});
+  });
+  const data={name,wa:document.getElementById('c-wa').value,alamat:document.getElementById('c-alamat').value,notes:document.getElementById('c-notes').value,cats,v:0,sp:0,ls:'—'};
+  const apiAction = editCustIdx!==null ? 'updateCustomer' : 'saveCustomer';
+  if(editCustIdx!==null){data.v=CUSTS[editCustIdx].v;data.sp=CUSTS[editCustIdx].sp;data.ls=CUSTS[editCustIdx].ls;}
+  showLoading('Menyimpan data pelanggan...');
+  apiPost({action: apiAction, ...data}).then(res=>{
+    hideLoading();
+    if(res.success){
+      if(editCustIdx!==null){ CUSTS[editCustIdx]=data; toast('✓ Data '+name+' diperbarui'); }
+      else { CUSTS.push(data); toast('✓ '+name+' ditambahkan'); }
+      closeOv('cu-ov'); rCust();
+    } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
+  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+}
+
+/* ============================================================
+   CALENDAR
+   ============================================================ */
+let CY=2026,CM=6;
+function rCal(){
+  const MN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  document.getElementById('cal-title').textContent=MN[CM]+' '+CY;
+  document.getElementById('cal-hdrs').innerHTML=['Min','Sen','Sel','Rab','Kam','Jum','Sab'].map(d=>`<div class="cdhdr">${d}</div>`).join('');
+  const fd=new Date(CY,CM,1).getDay(),dim=new Date(CY,CM+1,0).getDate();
+  const tds=new Date().toISOString().split('T')[0];
+  let cells='';
+  for(let i=0;i<fd;i++) cells+=`<div class="ccell empty"></div>`;
+  for(let d=1;d<=dim;d++){
+    const ds=`${CY}-${String(CM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const oc=occOn(ds),av=18-oc,isPast=ds<tds,isT=ds===tds;
+    let cls='ccell '+(oc>=15?'cfull':oc>=9?'chigh':'clow');
+    if(isT)cls+=' today';if(isPast)cls+=' past';
+    const occ_c=oc>=15?'var(--red)':oc>=9?'var(--amber)':'var(--accent)';
+    cells+=`<div class="${cls}" onclick="${isPast?'':(`openDay('${ds}',${d})`)}">
+      ${oc>=18?'<div class="cfullbadge">FULL</div>':''}
+      <div class="cdate">${d}</div>
+      <div class="cocc" style="color:${occ_c}">${oc}</div>
+      <div class="coccsub">${av} sisa</div>
+    </div>`;
+  }
+  document.getElementById('cal-grid').innerHTML=cells;
+  rCalUpcoming();
+}
+function calPrev(){CM--;if(CM<0){CM=11;CY--;}rCal();}
+function calNext(){CM++;if(CM>11){CM=0;CY++;}rCal();}
+function openDay(ds,d){
+  const MN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  document.getElementById('dd-title').textContent=`${d} ${MN[CM]} ${CY}`;
+  const bks=BOOKINGS.filter(b=>{const dt=new Date(ds);return dt>=new Date(b.ci)&&dt<new Date(b.co);});
+  const totalCats=bks.reduce((s,b)=>s+b.cats.length,0);
+  let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+    <div style="background:var(--red-l);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--red)">${totalCats}</div><div style="font-size:11px;color:var(--text3)">Kucing Menginap</div></div>
+    <div style="background:var(--accent-l);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--accent)">${18-totalCats}</div><div style="font-size:11px;color:var(--text3)">Slot Tersedia</div></div>
+  </div>`;
+  if(bks.length){
+    bks.forEach(b=>{html+=`<div class="dr"><span>${b.owner}</span><span style="color:var(--text2)">${b.cats.map(c=>c.name).join(', ')} · ${b.cats.length} kucing</span></div>`;});
+  } else {
+    html+=`<div class="es"><p>Tidak ada tamu. Semua slot tersedia.</p></div>`;
+  }
+  document.getElementById('dd-body').innerHTML=html;
+  document.getElementById('dd-ov').classList.add('open');
+}
+function rCalUpcoming(){
+  const today=new Date(),rows=[];
+  BOOKINGS.forEach(b=>{
+    const dci=Math.round((new Date(b.ci)-today)/86400000);
+    const dco=Math.round((new Date(b.co)-today)/86400000);
+    if(dci>=0&&dci<=7)rows.push({date:b.ci,type:'Check-in',label:b.owner+' ('+b.cats.map(c=>c.name).join(', ')+')'});
+    if(dco>=0&&dco<=7)rows.push({date:b.co,type:'Check-out',label:b.owner+' ('+b.cats.map(c=>c.name).join(', ')+')'});
+  });
+  rows.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  document.getElementById('cal-upcoming').innerHTML=rows.length?rows.map(r=>`
+    <div style="display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border)">
+      <span class="badge ${r.type==='Check-in'?'bb':'ba'}">${r.type}</span>
+      <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.label}</div><div style="font-size:11px;color:var(--text3)">${r.date}</div></div>
+    </div>`).join(''):'<div class="es"><p>Tidak ada event minggu ini</p></div>';
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function rAddonList(){
+  document.getElementById('addon-list').innerHTML=ADDONS.map(a=>`
+    <div class="aitem" id="ai-${a.id}">
+      <div class="cqname"><div class="ainame">${a.name}</div><div class="aiprice">${rp(a.price)} / pemberian</div></div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="startEdit('${a.id}')">Edit</button>
+        <button class="btn btn-d" style="padding:6px 10px;font-size:12px" onclick="delAddon('${a.id}')">Hapus</button>
+      </div>
+    </div>`).join('');
+}
+function startEdit(id){
+  const a=ADDONS.find(x=>x.id===id);
+  document.getElementById('ai-'+id).innerHTML=`
+    <input type="text" value="${a.name}" id="ename-${id}" style="flex:2;font-size:13px">
+    <input type="number" value="${a.price}" id="eprice-${id}" style="width:100px;font-size:13px">
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn btn-p" style="padding:6px 10px;font-size:12px" onclick="saveEdit('${id}')">Simpan</button>
+      <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="rAddonList()">Batal</button>
+    </div>`;
+}
+function saveEdit(id){
+  const name=document.getElementById('ename-'+id).value.trim(),price=parseInt(document.getElementById('eprice-'+id).value)||0;
+  if(!name||!price){toast('⚠ Wajib diisi');return;}
+  apiPost({action:'updateAddon',id,name,price}).then(res=>{
+    if(res.success){
+      const a=ADDONS.find(x=>x.id===id);a.name=name;a.price=price;
+      rAddonList();toast('✓ Item diupdate');
+    } else { toast('⚠ Gagal update'); }
+  });
+}
+function addAddon(){
+  const name=document.getElementById('an-name').value.trim(),price=parseInt(document.getElementById('an-price').value)||0;
+  if(!name||!price){toast('⚠ Nama dan harga wajib');return;}
+  apiPost({action:'saveAddon',name,price}).then(res=>{
+    if(res.success){
+      ADDONS.push({id:res.addon_id,name,price});
+      document.getElementById('an-name').value='';document.getElementById('an-price').value='';
+      rAddonList();toast('✓ '+name+' ditambahkan');
+    } else { toast('⚠ Gagal: '+(res.error||'')); }
+  });
+}
+function delAddon(id){
+  apiPost({action:'deleteAddon',addon_id:id}).then(res=>{
+    if(res.success){ADDONS=ADDONS.filter(a=>a.id!==id);rAddonList();toast('Item dihapus');}
+    else { toast('⚠ Gagal hapus'); }
+  });
+}
+function saveRoom(){
+  ROOM.wd=parseInt(document.getElementById('s-wd').value)||70000;
+  ROOM.we=parseInt(document.getElementById('s-we').value)||90000;
+  ROOM.ei=parseInt(document.getElementById('s-ei').value)||20000;
+  ROOM.lo=parseInt(document.getElementById('s-lo').value)||20000;
+  apiPost({action:'updateSettings',settings:{
+    weekday_rate:ROOM.wd, weekend_rate:ROOM.we,
+    early_checkin:ROOM.ei, late_checkout:ROOM.lo
+  }}).then(res=>{
+    toast(res.success?'✓ Tarif disimpan':'⚠ Gagal simpan tarif');
+  });
+}
+
+/* ============================================================
+   REPORTS
+   ============================================================ */
+function rTX(){
+  document.getElementById('tx-list').innerHTML=TXS.map(t=>`
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:500">${t.owner}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent)">${rp(t.tot)}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">${t.id} · ${t.cats} · ${t.n} malam · ${t.date}</div>
+      <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">
+        ${t.ao>0?`<span class="badge bp">Add-on ${rp(t.ao)}</span>`:''}
+        ${t.disc>0?`<span class="badge br">Diskon ${rp(t.disc)}</span>`:''}
+        ${t.dp>0?`<span class="badge bb">DP ${rp(t.dp)}</span>`:''}
+      </div>
+    </div>`).join('');
+}
+function rRevChart(){
+  const days=['S','M','S','R','K','J','S'],vals=[520000,650000,480000,710000,590000,630000,780000],mx=Math.max(...vals);
+  document.getElementById('rev-chart').innerHTML=vals.map((v,i)=>`<div class="bcol"><div class="bar${i===6?' today':''}" style="height:${Math.round(v/mx*68)}px"></div><div class="blbl">${days[i]}</div></div>`).join('');
+}
+function rAddonBreak(){
+  const data=ADDONS.slice(0,4).map((a,i)=>({name:a.name,val:(4-i)*80000+50000}));
+  const mx=Math.max(...data.map(d=>d.val));
+  const cols=['var(--accent)','var(--blue)','var(--amber)','var(--purple)'];
+  document.getElementById('addon-breakdown').innerHTML=data.map((d,i)=>`
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>${d.name}</span><span style="font-weight:500">${rp(d.val)}</span></div>
+      <div style="height:6px;background:var(--surface2);border-radius:3px"><div style="height:100%;width:${Math.round(d.val/mx*100)}%;background:${cols[i]};border-radius:3px"></div></div>
+    </div>`).join('');
+}
+
+/* ============================================================
+   NAV
+   ============================================================ */
+const PAGE_TITLES={dashboard:'Dashboard',slots:'Slot & Kamar',calendar:'Kalender',bookings:'Booking',customers:'Pelanggan',reports:'Laporan',settings:'Pengaturan'};
+const PAGE_SUBS={dashboard:'/ Ringkasan Hari Ini',slots:'/ Status Real-time',calendar:'/ Occupancy per Tanggal',bookings:'/ Semua Reservasi',customers:'/ Database',reports:'/ Keuangan',settings:'/ Harga & Layanan'};
+
+function nav(page,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.bn-item,.sni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(btn) btn.classList.add('active');
+  const bnId='bn-'+(['customers','reports','settings'].includes(page)?'more':page);
+  const bnEl=document.getElementById(bnId); if(bnEl) bnEl.classList.add('active');
+  const dt=document.getElementById('dt-title');
+  if(dt) dt.innerHTML=`${PAGE_TITLES[page]||page} <span>${PAGE_SUBS[page]||''}</span>`;
+  if(page==='slots') rFull();
+  if(page==='calendar') rCal();
+  if(page==='bookings') rAll('all');
+  if(page==='customers') rCust();
+  if(page==='reports'){rTX();rRevChart();rAddonBreak();}
+  if(page==='settings') rAddonList();
+}
+function navTo(page){ nav(page, document.getElementById('bn-'+page)); }
+function filterB(f,btn){
+  rAll(f);
+  document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+function closeOv(id){ document.getElementById(id).classList.remove('open'); }
+function openCust(){ openCust(); }
+
+/* TOAST */
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.innerHTML=`<span>${msg}</span>`;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+/* CLOCK */
+function updateClock(){
+  const now=new Date();
+  const str=now.toLocaleString('id-ID',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const ml=document.getElementById('livetime-m'); if(ml) ml.textContent=str;
+  const dl=document.getElementById('livetime-d'); if(dl) dl.textContent=str;
+  const sd=document.getElementById('sdate'); if(sd) sd.textContent=now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'});
+}
+
+/* INIT */
+window.addEventListener('DOMContentLoaded',()=>{
+  updateClock(); setInterval(updateClock,30000);
+  document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+  // Load semua data dari Google Sheets
+  loadAllData();
+});
+</script>
+</body>
+</html>

@@ -586,55 +586,11 @@ let ADDONS = []; // diisi dari Google Sheets saat loadAllData()
 const SLOTS = Array.from({length:18}, (_,i) => ({id:i+1, status:'available', bookingId:null}));
 
 /* BOOKINGS — unit utama, pelanggan-first */
-let BOOKINGS = [
-  {
-    id:'BK-001', owner:'Budi Santoso', wa:'08111111111',
-    ci:'2026-07-01', co:'2026-07-10', eh:0, lh:0, notes:'',
-    cats:[
-      {name:'Whiskers', breed:'Persia', slotId:1, sa:['a1'], aq:{}, ma:[]},
-      {name:'Comel', breed:'Persia', slotId:17, sa:[], aq:{}, ma:[]}
-    ],
-    status:'occupied', dp:0, dpConfirmed:false, disc:0
-  },
-  {
-    id:'BK-002', owner:'Sari Widya', wa:'08222222222',
-    ci:'2026-07-01', co:'2026-07-05', eh:0, lh:0, notes:'',
-    cats:[{name:'Mochi', breed:'Maine Coon', slotId:2, sa:[], aq:{}, ma:[]}],
-    status:'occupied', dp:0, dpConfirmed:false, disc:0
-  },
-  {
-    id:'BK-003', owner:'Andi Pratama', wa:'08333333333',
-    ci:'2026-07-08', co:'2026-07-13', eh:2, lh:0, notes:'Pemalu',
-    cats:[{name:'Biscuit', breed:'Ragdoll', slotId:3, sa:[], aq:{}, ma:[]}],
-    status:'checkin', dp:0, dpConfirmed:false, disc:0
-  },
-  {
-    id:'BK-004', owner:'Maya Riani', wa:'08444444444',
-    ci:'2026-07-05', co:'2026-07-09', eh:0, lh:0, notes:'',
-    cats:[{name:'Cleo', breed:'British SH', slotId:5, sa:[], aq:{}, ma:[]}],
-    status:'checkout', dp:0, dpConfirmed:false, disc:0
-  },
-  {
-    id:'BK-005', owner:'Dewi Kusuma', wa:'08666666666',
-    ci:'2026-07-01', co:'2026-07-14', eh:0, lh:0, notes:'',
-    cats:[{name:'Luna', breed:'Anggora', slotId:7, sa:['a1','a3'], aq:{}, ma:[]}],
-    status:'occupied', dp:200000, dpConfirmed:true, disc:0
-  },
-  {
-    id:'BK-006', owner:'Lisa N.', wa:'08101010101',
-    ci:'2026-07-08', co:'2026-07-10', eh:0, lh:0, notes:'',
-    cats:[{name:'Kopi', breed:'DSH', slotId:13, sa:[], aq:{}, ma:[]}],
-    status:'checkin', dp:0, dpConfirmed:false, disc:0
-  },
-];
+let BOOKINGS = []; // diisi dari Google Sheets
 
 let CUSTS = []; // diisi dari Google Sheets saat loadAllData()
 
-let TXS = [
-  {date:'2026-07-01',id:'BK-010',owner:'Budi Santoso',cats:'Whiskers, Comel',n:4,base:800000,ao:60000,disc:0,dp:0,tot:860000},
-  {date:'2026-07-01',id:'BK-009',owner:'Dewi Kusuma',cats:'Luna',n:6,base:650000,ao:120000,disc:0,dp:200000,tot:770000},
-  {date:'2026-06-15',id:'BK-007',owner:'Fajar Hidayat',cats:'Oreo',n:4,base:430000,ao:40000,disc:0,dp:0,tot:470000},
-];
+let TXS = []; // diisi dari Google Sheets
 
 /* Sync SLOTS from BOOKINGS on load */
 function syncSlots(){
@@ -806,11 +762,11 @@ function rAll(f){
   else if(f==='completed') list=list.filter(b=>b.status==='completed');
   else list=list.filter(b=>b.status!=='completed'); // 'all' = aktif saja
   const html=list.map(b=>bkCard(b)).join('');
-  document.getElementById('all-list').innerHTML=html||'<div class="es"><p>Tidak ada booking</p></div>';
+  document.getElementById('all-list').innerHTML=html||`<div class="es"><p>${f==='completed'?'Belum ada booking selesai':'Tidak ada booking aktif'}</p></div>`;
 }
 function rRecent(){
   const list=BOOKINGS.filter(b=>b.status!=='completed').slice(0,5);
-  document.getElementById('recent-list').innerHTML=list.map(b=>bkCard(b)).join('')||'<div class="es"><p>Belum ada booking</p></div>';
+  document.getElementById('recent-list').innerHTML=list.length?list.map(b=>bkCard(b)).join(''):'<div class="es" style="padding:20px"><p>Belum ada booking aktif</p></div>';
 }
 
 /* ============================================================
@@ -862,8 +818,16 @@ let catRowCount=0;
 
 function openBooking(){
   catRowCount=0;
-  document.getElementById('b-owner').innerHTML='<option value="">-- Pilih Pelanggan --</option>'+
+  // Refresh dropdown dari CUSTS terkini
+  const ownerSel=document.getElementById('b-owner');
+  ownerSel.innerHTML='<option value="">-- Pilih Pelanggan --</option>'+
     CUSTS.map(c=>`<option value="${c.name}" data-wa="${c.wa}">${c.name} (${c.wa})</option>`).join('');
+  if(CUSTS.length===0){
+    ownerSel.innerHTML='<option value="">-- Belum ada pelanggan --</option>';
+    closeOv('bk-ov');
+    toast('⚠ Tambah pelanggan dulu sebelum membuat booking');
+    return;
+  }
   document.getElementById('b-wa').value='';
   document.getElementById('b-notes').value='';
   document.getElementById('b-ci').value=new Date().toISOString().split('T')[0];
@@ -886,7 +850,10 @@ function addCatBookingRow(prefillName='', prefillBreed=''){
   catRowCount++;
   const id=catRowCount;
   const avail=availSlots();
-  const slotOpts=avail.map(s=>`<option value="${s.id}">Slot ${s.id}</option>`).join('');
+  // Also exclude slots already selected in other rows in this form
+  const alreadyPicked=[];
+  document.querySelectorAll('[id^="cbslot-"]').forEach(sel=>{if(sel.value) alreadyPicked.push(parseInt(sel.value));});
+  const slotOpts=avail.filter(s=>!alreadyPicked.includes(s.id)).map(s=>`<option value="${s.id}">Slot ${s.id}</option>`).join('');
   const div=document.createElement('div');
   div.id='cbrow-'+id;
   div.className='cat-booking-row';
@@ -1578,6 +1545,11 @@ function finalizeCO(){
 let editCustIdx=null, catRowCt=0;
 function rCust(){
   document.getElementById('cust-sub').textContent=CUSTS.length+' pelanggan terdaftar';
+  if(!CUSTS.length){
+    document.getElementById('cust-list').innerHTML='<div class="es"><p>Belum ada pelanggan. Tap Tambah untuk menambahkan.</p></div>';
+    document.getElementById('cust-sub').textContent='0 pelanggan terdaftar';
+    return;
+  }
   document.getElementById('cust-list').innerHTML=CUSTS.map((c,i)=>{
     const ini=c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     return`<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
@@ -1636,7 +1608,17 @@ function saveCust(){
   const apiAction = editCustIdx!==null ? 'updateCustomer' : 'saveCustomer';
   if(editCustIdx!==null){data.v=CUSTS[editCustIdx].v;data.sp=CUSTS[editCustIdx].sp;data.ls=CUSTS[editCustIdx].ls;}
   showLoading('Menyimpan data pelanggan...');
-  apiPost({action: apiAction, ...data}).then(res=>{
+  apiPost({
+    action: apiAction,
+    name: data.name,
+    wa: data.wa,
+    alamat: data.alamat,
+    notes: data.notes,
+    cats: data.cats,
+    v: data.v,
+    sp: data.sp,
+    ls: data.ls
+  }).then(res=>{
     hideLoading();
     if(res.success){
       if(editCustIdx!==null){ CUSTS[editCustIdx]=data; toast('✓ Data '+name+' diperbarui'); }
@@ -1679,7 +1661,7 @@ function calNext(){CM++;if(CM>11){CM=0;CY++;}rCal();}
 function openDay(ds,d){
   const MN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   document.getElementById('dd-title').textContent=`${d} ${MN[CM]} ${CY}`;
-  const bks=BOOKINGS.filter(b=>{const dt=new Date(ds);return dt>=new Date(b.ci)&&dt<new Date(b.co);});
+  const bks=BOOKINGS.filter(b=>{if(!b.ci||!b.co||b.status==='completed'&&b.completedAt<ds)return false;const dt=new Date(ds);return dt>=new Date(b.ci)&&dt<new Date(b.co);});
   const totalCats=bks.reduce((s,b)=>s+b.cats.length,0);
   let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
     <div style="background:var(--red-l);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--red)">${totalCats}</div><div style="font-size:11px;color:var(--text3)">Kucing Menginap</div></div>
@@ -1713,6 +1695,10 @@ function rCalUpcoming(){
    SETTINGS
    ============================================================ */
 function rAddonList(){
+  if(!ADDONS.length){
+    document.getElementById('addon-list').innerHTML='<div class="es"><p>Belum ada add-on. Data sedang dimuat atau tambahkan manual.</p></div>';
+    return;
+  }
   document.getElementById('addon-list').innerHTML=ADDONS.map(a=>`
     <div class="aitem" id="ai-${a.id}">
       <div class="cqname"><div class="ainame">${a.name}</div><div class="aiprice">${rp(a.price)} / pemberian</div></div>
@@ -1868,7 +1854,7 @@ const PAGE_TITLES={dashboard:'Dashboard',slots:'Slot & Kamar',calendar:'Kalender
 const PAGE_SUBS={dashboard:'/ Ringkasan Hari Ini',slots:'/ Status Real-time',calendar:'/ Occupancy per Tanggal',bookings:'/ Semua Reservasi',customers:'/ Database',reports:'/ Keuangan',settings:'/ Harga & Layanan'};
 
 function nav(page,btn){
-  closeMore();
+  if(typeof closeMore==='function') closeMore();
   document.querySelectorAll('.more-item').forEach(b=>b.classList.remove('active-more'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.bn-item,.sni').forEach(n=>n.classList.remove('active'));
@@ -1892,7 +1878,6 @@ function filterB(f,btn){
   if(btn) btn.classList.add('active');
 }
 function closeOv(id){ document.getElementById(id).classList.remove('open'); }
-function openCust(){ openCust(); }
 
 
 function toggleMore(){
@@ -1912,20 +1897,18 @@ function closeMore(){
 }
 function navMore(page){
   closeMore();
-  // clear all bottom nav active
   document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('bn-more').classList.add('active');
-  // highlight active item in popup
   document.querySelectorAll('.more-item').forEach(b=>b.classList.remove('active-more'));
   const el=document.getElementById('mmi-'+page); if(el) el.classList.add('active-more');
-  // navigate
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sni').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+page).classList.add('active');
+  const pageEl=document.getElementById('page-'+page);
+  if(pageEl) pageEl.classList.add('active');
   const dt=document.getElementById('dt-title');
   const PAGE_TITLES={customers:'Pelanggan',reports:'Laporan',settings:'Pengaturan'};
   const PAGE_SUBS={customers:'/ Database',reports:'/ Keuangan',settings:'/ Harga & Layanan'};
-  if(dt) dt.innerHTML=`${PAGE_TITLES[page]} <span>${PAGE_SUBS[page]||''}</span>`;
+  if(dt) dt.innerHTML=`${PAGE_TITLES[page]||page} <span>${PAGE_SUBS[page]||''}</span>`;
   if(page==='customers') rCust();
   if(page==='reports'){rTX();rRevChart();rAddonBreak();}
   if(page==='settings') rAddonList();

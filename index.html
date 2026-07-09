@@ -964,7 +964,7 @@ function saveBk(){
     } else {
       toast('⚠ Gagal simpan: '+(res.error||'unknown'));
     }
-  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
 }
 
 /* ============================================================
@@ -983,7 +983,7 @@ function doCheckin(bkId){
       rMini();rFull();rRecent();rAll('all');
       toast('✓ Check-in '+b.owner+' berhasil!');
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
 }
 
 /* ============================================================
@@ -1023,19 +1023,26 @@ function hideLoading(){ document.getElementById('loading-overlay').style.display
 
 // Generic API GET
 async function apiGet(action){
-  const res = await fetch(`${API_URL}?action=${action}`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_URL}?action=${action}`);
+    return await res.json();
+  } catch(err) {
+    console.error('apiGet error:', action, err);
+    return {error: err.message || 'Network error'};
+  }
 }
 
-// Generic API POST
+// Generic API POST — via GET to avoid CORS redirect issue
 async function apiPost(data){
-  const res = await fetch(API_URL, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(data),
-    redirect: 'follow',
-  });
-  return res.json();
+  try {
+    const encoded = encodeURIComponent(JSON.stringify(data));
+    const url = `${API_URL}?action=${data.action}&data=${encoded}`;
+    const res = await fetch(url);
+    return await res.json();
+  } catch(err) {
+    console.error('apiPost error:', err);
+    return {error: err.message || 'Network error'};
+  }
 }
 
 // Load ALL data from Sheets on startup
@@ -1363,7 +1370,7 @@ function confirmDP(){
       rAll('all');rRecent();
       toast('✓ DP '+rp(dpAmt)+' tercatat untuk '+b.owner);
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
 }
 
 function printPI(){
@@ -1536,7 +1543,7 @@ function finalizeCO(){
       rMini();rFull();rRecent();rAll('all');
       toast('✓ Checkout '+b.owner+' selesai. Total: '+rp(tot));
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
 }
 
 /* ============================================================
@@ -1625,7 +1632,7 @@ function saveCust(){
       else { CUSTS.push(data); toast('✓ '+name+' ditambahkan'); }
       closeOv('cu-ov'); rCust();
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(()=>{ hideLoading(); toast('⚠ Gagal terhubung ke server'); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
 }
 
 /* ============================================================

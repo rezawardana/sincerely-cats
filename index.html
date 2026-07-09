@@ -468,6 +468,20 @@ textarea{resize:vertical;min-height:60px}
   <div class="modal">
     <div class="mh"><div class="mt">Proforma Invoice</div><button class="mc2" onclick="closeOv('pi-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="mb">
+      <!-- DISKON -->
+      <div style="background:var(--red-l);border:1px solid #f5c6c4;border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Diskon (opsional)</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="pi-disc-type" onchange="calcDP()" style="width:120px;padding:8px 10px;font-size:13px">
+            <option value="none">Tidak ada</option>
+            <option value="pct">Persen (%)</option>
+            <option value="nom">Nominal (Rp)</option>
+          </select>
+          <input type="number" id="pi-disc-val" placeholder="0" min="0" oninput="calcDP()" style="flex:1;padding:8px 10px;font-size:13px" disabled>
+          <span id="pi-disc-result" style="font-size:13px;font-weight:700;color:var(--red);min-width:80px;text-align:right"></span>
+        </div>
+      </div>
+      <!-- DP -->
       <div style="background:var(--amber-l);border:1px solid #f0d898;border-radius:10px;padding:14px;margin-bottom:16px">
         <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Atur DP</div>
         <div style="display:flex;gap:8px;align-items:center">
@@ -995,11 +1009,30 @@ function calcDP(){
   const b=BOOKINGS.find(x=>x.id===piId);
   if(!b) return;
   const est=calcBkTotal(b);
-  const type=document.getElementById('dp-type').value;
-  const val=parseFloat(document.getElementById('dp-val').value)||0;
-  const dpAmt=type==='pct'?Math.round(est*Math.min(val,100)/100):Math.min(val,est);
+
+  // Calculate discount
+  const discType=document.getElementById('pi-disc-type').value;
+  const discValEl=document.getElementById('pi-disc-val');
+  let discAmt=0;
+  if(discType==='none'){
+    discValEl.disabled=true; discValEl.value='';
+    document.getElementById('pi-disc-result').textContent='';
+  } else {
+    discValEl.disabled=false;
+    const discVal=parseFloat(discValEl.value)||0;
+    discAmt=discType==='pct'?Math.round(est*Math.min(discVal,100)/100):Math.min(discVal,est);
+    document.getElementById('pi-disc-result').textContent=discAmt>0?'− '+rp(discAmt):'';
+  }
+  b.disc=discAmt;
+
+  // Calculate DP based on total after discount
+  const totalAfterDisc=Math.max(0,est-discAmt);
+  const dpType=document.getElementById('dp-type').value;
+  const dpVal=parseFloat(document.getElementById('dp-val').value)||0;
+  const dpAmt=dpType==='pct'?Math.round(totalAfterDisc*Math.min(dpVal,100)/100):Math.min(dpVal,totalAfterDisc);
   document.getElementById('dp-result').textContent=rp(dpAmt);
   b._dpAmt=dpAmt;
+
   renderPIPreview(b,dpAmt);
 }
 
@@ -1350,8 +1383,24 @@ function openPI(bkId){
   piId=bkId;
   const b=BOOKINGS.find(x=>x.id===bkId);
   if(!b) return;
-  document.getElementById('dp-type').value='pct';
-  document.getElementById('dp-val').value='50';
+  // Restore discount if already set
+  if(b.disc>0){
+    document.getElementById('pi-disc-type').value='nom';
+    document.getElementById('pi-disc-val').value=b.disc;
+    document.getElementById('pi-disc-val').disabled=false;
+  } else {
+    document.getElementById('pi-disc-type').value='none';
+    document.getElementById('pi-disc-val').value='';
+    document.getElementById('pi-disc-val').disabled=true;
+  }
+  // Restore DP if already confirmed
+  if(b.dpConfirmed && b.dp>0){
+    document.getElementById('dp-type').value='nom';
+    document.getElementById('dp-val').value=b.dp;
+  } else {
+    document.getElementById('dp-type').value='pct';
+    document.getElementById('dp-val').value='50';
+  }
   calcDP();
   closeOv('bd-ov');
   document.getElementById('pi-ov').classList.add('open');
@@ -1361,14 +1410,18 @@ function confirmDP(){
   const b=BOOKINGS.find(x=>x.id===piId);
   if(!b) return;
   const dpAmt=b._dpAmt||0;
-  showLoading('Menyimpan DP...');
-  apiPost({action:'confirmDP', booking_id: piId, dp_amount: dpAmt}).then(res=>{
+  const discAmt=b.disc||0;
+  showLoading('Menyimpan data invoice...');
+  apiPost({action:'confirmDP', booking_id: piId, dp_amount: dpAmt, disc: discAmt}).then(res=>{
     hideLoading();
     if(res.success){
       b.dp=dpAmt; b.dpConfirmed=true;
       closeOv('pi-ov');
       rAll('all');rRecent();
-      toast('✓ DP '+rp(dpAmt)+' tercatat untuk '+b.owner);
+      const msg = discAmt>0
+        ? '✓ DP '+rp(dpAmt)+' + Diskon '+rp(discAmt)+' tercatat'
+        : '✓ DP '+rp(dpAmt)+' tercatat untuk '+b.owner;
+      toast(msg);
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
   }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
 }

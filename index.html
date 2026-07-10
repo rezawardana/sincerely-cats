@@ -831,7 +831,12 @@ function openBkDetail(bkId){
 let catRowCount=0;
 
 function openBooking(){
+  editingBkId=null;
   catRowCount=0;
+  // Reset title & save button
+  document.querySelector('#bk-ov .mt').textContent='Booking Baru';
+  const saveBtn=document.querySelector('#bk-ov .mf .btn-p');
+  if(saveBtn) saveBtn.textContent='Simpan & Buat Invoice';
   // Refresh dropdown dari CUSTS terkini
   const ownerSel=document.getElementById('b-owner');
   ownerSel.innerHTML='<option value="">-- Pilih Pelanggan --</option>'+
@@ -851,6 +856,70 @@ function openBooking(){
   document.getElementById('cat-booking-rows').innerHTML='';
   document.getElementById('pbox').style.display='none';
   addCatBookingRow();
+  document.getElementById('bk-ov').classList.add('open');
+}
+
+let editingBkId = null;
+
+function editBooking(bkId){
+  const b = BOOKINGS.find(x=>x.id===bkId);
+  if(!b) return;
+  editingBkId = bkId;
+  catRowCount = 0;
+
+  // Set form title
+  document.querySelector('#bk-ov .mt').textContent = 'Edit Booking — '+b.id;
+
+  // Fill owner dropdown & select
+  const ownerSel = document.getElementById('b-owner');
+  ownerSel.innerHTML = '<option value="">-- Pilih Pelanggan --</option>'+
+    CUSTS.map(c=>`<option value="${c.name}" data-wa="${c.wa}">${c.name} (${c.wa})</option>`).join('');
+  ownerSel.value = b.owner;
+  document.getElementById('b-wa').value = b.wa;
+
+  // Fill dates
+  document.getElementById('b-ci').value = b.ci;
+  document.getElementById('b-co').value = b.co;
+  document.getElementById('b-cih').value = b.eh||'0';
+  document.getElementById('b-coh').value = b.lh||'0';
+  document.getElementById('b-notes').value = b.notes||'';
+
+  // Fill cats
+  document.getElementById('cat-booking-rows').innerHTML = '';
+  b.cats.forEach(cat => {
+    addCatBookingRow(cat.name, cat.breed);
+    // Set slot + addons for this row
+    const rowId = catRowCount;
+    setTimeout(()=>{
+      const slotSel = document.getElementById('cbslot-'+rowId);
+      if(slotSel){
+        // Add the current slot as option (it's occupied by this booking)
+        const hasOpt = Array.from(slotSel.options).find(o=>o.value==String(cat.slotId));
+        if(!hasOpt){
+          const opt = document.createElement('option');
+          opt.value = cat.slotId;
+          opt.textContent = 'Slot '+cat.slotId+' (saat ini)';
+          slotSel.insertBefore(opt, slotSel.firstChild.nextSibling);
+        }
+        slotSel.value = cat.slotId;
+      }
+      // Check addons
+      (cat.sa||[]).forEach(aid=>{
+        const chk = document.getElementById('cbchk-'+rowId+'-'+aid);
+        const aci = document.getElementById('cbaci-'+rowId+'-'+aid);
+        if(chk){ chk.checked=true; }
+        if(aci){ aci.classList.add('sel'); }
+      });
+    }, 50);
+  });
+
+  document.getElementById('pbox').style.display = 'none';
+  setTimeout(()=>calcAllCats(), 100);
+
+  // Change save button
+  const saveBtn = document.querySelector('#bk-ov .mf .btn-p');
+  if(saveBtn) saveBtn.textContent = 'Simpan Perubahan';
+
   document.getElementById('bk-ov').classList.add('open');
 }
 

@@ -449,7 +449,7 @@ textarea{resize:vertical;min-height:60px}
       </div>
     </div>
     <div class="mf">
-      <button class="btn btn-g" onclick="closeOv('bk-ov')">Batal</button>
+      <button class="btn btn-g" onclick="editingBkId=null;closeOv('bk-ov')">Batal</button>
       <button class="btn btn-p" onclick="saveBk()">Simpan & Buat Invoice</button>
     </div>
   </div>
@@ -841,6 +841,7 @@ function openBkDetail(bkId){
    BOOKING FORM
    ============================================================ */
 let catRowCount=0;
+let editingBkId=null;
 
 function openBooking(){
   editingBkId=null;
@@ -870,8 +871,6 @@ function openBooking(){
   addCatBookingRow();
   document.getElementById('bk-ov').classList.add('open');
 }
-
-let editingBkId = null;
 
 function editBooking(bkId){
   const b = BOOKINGS.find(x=>x.id===bkId);
@@ -1021,45 +1020,59 @@ function saveBk(){
     cats.push({name,breed,slotId,sa,aq:{},ma:[]});
   });
   if(!valid||!cats.length){toast('⚠ Isi nama kucing & slot untuk setiap kucing');return;}
-  // Check slot conflicts
   const usedSlots=cats.map(c=>c.slotId);
   if(new Set(usedSlots).size!==usedSlots.length){toast('⚠ Slot tidak boleh sama');return;}
-  const bkId='BK-'+String(BOOKINGS.length+1).padStart(3,'0');
-  const newBk={
-    id:bkId, owner,
-    wa:document.getElementById('b-wa').value,
-    ci, co,
-    eh:parseInt(document.getElementById('b-cih').value)||0,
-    lh:parseInt(document.getElementById('b-coh').value)||0,
-    notes:document.getElementById('b-notes').value,
-    cats, status:'checkin', dp:0, dpConfirmed:false, disc:0
-  };
-  // Save to API
-  showLoading('Menyimpan booking...');
-  apiPost({
-    action: 'saveBooking',
-    owner, wa: newBk.wa, ci, co,
-    eh: newBk.eh, lh: newBk.lh,
-    notes: newBk.notes,
-    cats: cats.map(cat => ({
-      name: cat.name, breed: cat.breed, slotId: cat.slotId,
-      sa: cat.sa, aq: cat.aq, ma: cat.ma
-    }))
-  }).then(res => {
-    hideLoading();
-    if(res.success){
-      // Update local ID with server-assigned ID
-      newBk.id = res.booking_id;
-      BOOKINGS.unshift(newBk);
-      syncSlots();
-      closeOv('bk-ov');
-      rMini();rFull();rRecent();
-      toast('✓ Booking '+owner+' ('+cats.length+' kucing) tersimpan');
-      setTimeout(()=>openPI(res.booking_id), 400);
-    } else {
-      toast('⚠ Gagal simpan: '+(res.error||'unknown'));
-    }
-  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+
+  const wa=document.getElementById('b-wa').value;
+  const eh=parseInt(document.getElementById('b-cih').value)||0;
+  const lh=parseInt(document.getElementById('b-coh').value)||0;
+  const notes=document.getElementById('b-notes').value;
+
+  if(editingBkId){
+    // === EDIT MODE — update booking yang sudah ada ===
+    const b=BOOKINGS.find(x=>x.id===editingBkId);
+    if(!b){toast('⚠ Booking tidak ditemukan');return;}
+    showLoading('Menyimpan perubahan...');
+    apiPost({
+      action:'updateBooking',
+      booking_id:editingBkId,
+      owner, wa, ci, co, eh, lh, notes,
+      cats: cats.map(cat=>({name:cat.name,breed:cat.breed,slotId:cat.slotId,sa:cat.sa,aq:cat.aq||{},ma:cat.ma||[]}))
+    }).then(res=>{
+      hideLoading();
+      if(res.success){
+        b.owner=owner; b.wa=wa; b.ci=ci; b.co=co; b.eh=eh; b.lh=lh; b.notes=notes; b.cats=cats;
+        syncSlots();
+        closeOv('bk-ov');
+        rMini();rFull();rRecent();rAll('all');
+        toast('✓ Booking '+editingBkId+' berhasil diupdate');
+        editingBkId=null;
+      } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
+    }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+  } else {
+    // === CREATE MODE — booking baru ===
+    const newBk={
+      id:'temp', owner, wa, ci, co, eh, lh, notes,
+      cats, status:'checkin', dp:0, dpConfirmed:false, disc:0
+    };
+    showLoading('Menyimpan booking...');
+    apiPost({
+      action:'saveBooking',
+      owner, wa, ci, co, eh, lh, notes,
+      cats: cats.map(cat=>({name:cat.name,breed:cat.breed,slotId:cat.slotId,sa:cat.sa,aq:cat.aq||{},ma:cat.ma||[]}))
+    }).then(res=>{
+      hideLoading();
+      if(res.success){
+        newBk.id=res.booking_id;
+        BOOKINGS.unshift(newBk);
+        syncSlots();
+        closeOv('bk-ov');
+        rMini();rFull();rRecent();
+        toast('✓ Booking '+owner+' ('+cats.length+' kucing) tersimpan');
+        setTimeout(()=>openPI(res.booking_id),400);
+      } else { toast('⚠ Gagal simpan: '+(res.error||'unknown')); }
+    }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+  }
 }
 
 /* ============================================================

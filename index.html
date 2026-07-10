@@ -1467,9 +1467,10 @@ function buildInvoiceHTML(b, opts={}){
 }
 
 function renderPIPreview(b, dpAmt){
-  // Get DP % for label
+  // Get DP % for label — dihitung dari total SETELAH diskon
   const est = calcBkTotal(b);
-  const dpPct = est>0 ? Math.round(dpAmt/est*100) : 0;
+  const totalAfterDisc = Math.max(0, est - (b.disc||0));
+  const dpPct = totalAfterDisc>0 ? Math.round(dpAmt/totalAfterDisc*100) : 0;
   document.getElementById('pi-preview').innerHTML = buildInvoiceHTML(b, {
     isProforma: true,
     dpAmt,
@@ -1528,8 +1529,9 @@ function printPI(){
   const b = BOOKINGS.find(x=>x.id===piId);
   if(!b) return;
   const est = calcBkTotal(b);
+  const totalAfterDisc = Math.max(0, est - (b.disc||0));
   const dpAmt = b._dpAmt || b.dp || 0;
-  const dpPct = est>0 ? Math.round(dpAmt/est*100) : 0;
+  const dpPct = totalAfterDisc>0 ? Math.round(dpAmt/totalAfterDisc*100) : 0;
   const html = buildInvoiceHTML(b, {isProforma:true, dpAmt, dpPct});
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Proforma Invoice - ${b.id}</title>

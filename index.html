@@ -341,6 +341,7 @@ textarea{resize:vertical;min-height:60px}
       <button class="ftab" onclick="filterB('checkout',this)">Check-out</button>
       <button class="ftab" onclick="filterB('active',this)">Menginap</button>
       <button class="ftab" onclick="filterB('completed',this)">✓ Selesai</button>
+      <button class="ftab" onclick="filterB('cancelled',this)">❌ Dibatalkan</button>
     </div>
     <div id="all-list"></div>
   </div>
@@ -609,7 +610,7 @@ let TXS = []; // diisi dari Google Sheets
 /* Sync SLOTS from BOOKINGS on load */
 function syncSlots(){
   SLOTS.forEach(s=>{s.status='available';s.bookingId=null;});
-  BOOKINGS.filter(b=>b.status!=='completed').forEach(b=>{
+  BOOKINGS.filter(b=>b.status!=='completed'&&b.status!=='cancelled').forEach(b=>{
     b.cats.forEach(cat=>{
       const sl=SLOTS.find(s=>s.id===cat.slotId);
       if(sl){sl.status=b.status;sl.bookingId=b.id;}
@@ -642,7 +643,7 @@ function calcBkTotal(b){
   return br+ef+lf+ao;
 }
 function sbadge(st){
-  const m={occupied:['br','Menginap'],available:['bg','Tersedia'],checkout:['ba','Check-out'],checkin:['bb','Check-in'],completed:['bg','✓ Selesai']};
+  const m={occupied:['br','Menginap'],available:['bg','Tersedia'],checkout:['ba','Check-out'],checkin:['bb','Check-in'],completed:['bg','✓ Selesai'],cancelled:['bgr','❌ Dibatalkan']};
   const[c,l]=m[st]||['bgr',st];
   return `<span class="badge ${c}">${l}</span>`;
 }
@@ -729,20 +730,29 @@ function bkCard(b){
       </div>
     </div>`).join('');
 
-  const actions = {
+  const actLine1 = {
     checkin:`
-      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">📄 Proforma Invoice</button>
-      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="doCheckin('${b.id}')">✓ Proses Check-in</button>`,
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">📄 Invoice</button>
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="editBooking('${b.id}')">✏️ Edit</button>
+      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="doCheckin('${b.id}')">✓ Check-in</button>`,
     occupied:`
       <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">📄 Invoice</button>
-      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="openPL('${b.id}')">💳 Checkout & Bayar</button>`,
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="editBooking('${b.id}')">✏️ Edit</button>
+      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="openPL('${b.id}')">💳 Checkout</button>`,
     checkout:`
       <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">📄 Invoice</button>
-      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="openPL('${b.id}')">💳 Checkout & Bayar</button>`,
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="editBooking('${b.id}')">✏️ Edit</button>
+      <button class="btn btn-p" style="flex:1;font-size:12px;padding:8px" onclick="openPL('${b.id}')">💳 Checkout</button>`,
     completed:`
-      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openBkDetail('${b.id}')">📋 Lihat Detail</button>
-      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">🖨 Cetak Invoice</button>`,
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openBkDetail('${b.id}')">📋 Detail</button>
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openPI('${b.id}')">🖨 Invoice</button>`,
+    cancelled:`
+      <button class="btn btn-g" style="flex:1;font-size:12px;padding:8px" onclick="openBkDetail('${b.id}')">📋 Detail</button>`,
   };
+  const actLine2 = (b.status!=='completed'&&b.status!=='cancelled')?`
+    <div style="display:flex;gap:6px;padding:0 16px 10px">
+      <button class="btn btn-d" style="flex:1;font-size:11px;padding:6px" onclick="cancelBooking('${b.id}')">❌ Batalkan Booking</button>
+    </div>`:'';
 
   return `<div class="bk-card">
     <div class="bk-header">
@@ -764,7 +774,8 @@ function bkCard(b){
       </div>
       <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="openBkDetail('${b.id}')">Detail</button>
     </div>
-    <div class="bk-actions">${actions[b.status]||''}</div>
+    <div class="bk-actions">${actLine1[b.status]||''}</div>
+    ${actLine2}
   </div>`;
 }
 
@@ -774,12 +785,13 @@ function rAll(f){
   else if(f==='checkout') list=list.filter(b=>b.status==='checkout');
   else if(f==='active') list=list.filter(b=>b.status==='occupied');
   else if(f==='completed') list=list.filter(b=>b.status==='completed');
-  else list=list.filter(b=>b.status!=='completed'); // 'all' = aktif saja
+  else if(f==='cancelled') list=list.filter(b=>b.status==='cancelled');
+  else list=list.filter(b=>b.status!=='completed'&&b.status!=='cancelled'); // 'all' = aktif saja
   const html=list.map(b=>bkCard(b)).join('');
   document.getElementById('all-list').innerHTML=html||`<div class="es"><p>${f==='completed'?'Belum ada booking selesai':'Tidak ada booking aktif'}</p></div>`;
 }
 function rRecent(){
-  const list=BOOKINGS.filter(b=>b.status!=='completed').slice(0,5);
+  const list=BOOKINGS.filter(b=>b.status!=='completed'&&b.status!=='cancelled').slice(0,5);
   document.getElementById('recent-list').innerHTML=list.length?list.map(b=>bkCard(b)).join(''):'<div class="es" style="padding:20px"><p>Belum ada booking aktif</p></div>';
 }
 
@@ -1053,6 +1065,23 @@ function saveBk(){
 /* ============================================================
    CHECK-IN
    ============================================================ */
+function cancelBooking(bkId){
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  if(!b) return;
+  if(!confirm('Yakin ingin membatalkan booking '+b.owner+' ('+b.cats.map(c=>c.name).join(', ')+')?')) return;
+  showLoading('Membatalkan booking...');
+  apiPost({action:'cancelBooking', booking_id:bkId}).then(res=>{
+    hideLoading();
+    if(res.success){
+      b.status='cancelled';
+      b.cancelledAt=new Date().toISOString().split('T')[0];
+      syncSlots();
+      rMini();rFull();rRecent();rAll('all');
+      toast('❌ Booking '+b.owner+' dibatalkan');
+    } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal')); });
+}
+
 function doCheckin(bkId){
   const b=BOOKINGS.find(x=>x.id===bkId);
   if(!b) return;

@@ -637,8 +637,9 @@ function calcCatAddonTot(cat){
 function calcBkTotal(b){
   const n=nights(b.ci,b.co);
   if(!n) return 0;
-  const br=baseRate(b.ci,n);
-  const ef=(b.eh||0)*ROOM.ei, lf=(b.lh||0)*ROOM.lo;
+  const numCats=b.cats.length||1;
+  const br=baseRate(b.ci,n)*numCats;
+  const ef=(b.eh||0)*ROOM.ei*numCats, lf=(b.lh||0)*ROOM.lo*numCats;
   let ao=0; b.cats.forEach(cat=>ao+=calcCatAddonTot(cat));
   return br+ef+lf+ao;
 }
@@ -802,7 +803,8 @@ function openBkDetail(bkId){
   const b=BOOKINGS.find(x=>x.id===bkId);
   if(!b) return;
   const n=nights(b.ci,b.co), tot=calcBkTotal(b);
-  const br=baseRate(b.ci,n), ef=(b.eh||0)*ROOM.ei, lf=(b.lh||0)*ROOM.lo;
+  const numCats=b.cats.length||1;
+  const br=baseRate(b.ci,n)*numCats, ef=(b.eh||0)*ROOM.ei*numCats, lf=(b.lh||0)*ROOM.lo*numCats;
   let html=`
     <div class="dr"><span>ID Booking</span><span>${b.id}</span></div>
     <div class="dr"><span>Pelanggan</span><span>${b.owner}</span></div>

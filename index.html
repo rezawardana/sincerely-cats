@@ -612,12 +612,26 @@ let TXS = []; // diisi dari Google Sheets
 
 /* Sync SLOTS from BOOKINGS on load */
 function syncSlots(){
+  const today=todayStr();
   SLOTS.forEach(s=>{s.status='available';s.bookingId=null;});
   BOOKINGS.filter(b=>b.status!=='completed'&&b.status!=='cancelled').forEach(b=>{
-    b.cats.forEach(cat=>{
-      const sl=SLOTS.find(s=>s.id===cat.slotId);
-      if(sl){sl.status=b.status;sl.bookingId=b.id;}
-    });
+    if(b.status==='occupied'){
+      // Kucing sudah fisik check-in — slot terisi sampai admin proses checkout,
+      // tidak peduli tanggal co sudah lewat atau belum
+      b.cats.forEach(cat=>{
+        const sl=SLOTS.find(s=>s.id===cat.slotId);
+        if(sl){sl.status='occupied';sl.bookingId=b.id;}
+      });
+    } else if(b.status==='checkin'){
+      // Baru reservasi, belum fisik datang — hanya pengaruhi tampilan HARI INI
+      // kalau tanggal check-in sudah tiba (booking masa depan tidak dihitung)
+      if(b.ci<=today){
+        b.cats.forEach(cat=>{
+          const sl=SLOTS.find(s=>s.id===cat.slotId);
+          if(sl && sl.status==='available'){sl.status='checkin';sl.bookingId=b.id;}
+        });
+      }
+    }
   });
 }
 
@@ -768,10 +782,10 @@ function rFull(){
   // Dashboard metrics
   const dOcc=document.getElementById('d-occ'); if(dOcc) dOcc.innerHTML=oc+'<span style="font-size:14px;color:var(--text3)">/18</span>';
   const dAvail=document.getElementById('d-avail'); if(dAvail) dAvail.textContent=av+' tersedia';
-  const dCi=document.getElementById('d-ci'); if(dCi) dCi.textContent=BOOKINGS.filter(b=>b.status==='checkin').length;
-  const dCo=document.getElementById('d-co'); if(dCo) dCo.textContent=BOOKINGS.filter(b=>b.status==='checkout').length;
-  // Hitung pendapatan hari ini dari TXS
   const today=todayStr();
+  const dCi=document.getElementById('d-ci'); if(dCi) dCi.textContent=BOOKINGS.filter(b=>b.status==='checkin'&&b.ci===today).length;
+  const dCo=document.getElementById('d-co'); if(dCo) dCo.textContent=BOOKINGS.filter(b=>b.status==='occupied'&&b.co===today).length;
+  // Hitung pendapatan hari ini dari TXS
   const todayRev=TXS.filter(t=>t.date===today).reduce((s,t)=>s+t.tot,0);
   const dRev=document.getElementById('d-rev'); if(dRev) dRev.textContent=todayRev>0?rp(todayRev):'Rp 0';
   const dRevSub=document.getElementById('d-rev-sub'); if(dRevSub) dRevSub.textContent=todayRev>0?TXS.filter(t=>t.date===today).length+' transaksi hari ini':'Belum ada transaksi hari ini';

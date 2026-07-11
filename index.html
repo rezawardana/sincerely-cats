@@ -276,6 +276,7 @@ textarea{resize:vertical;min-height:60px}
   <div class="page active" id="page-dashboard">
     <div class="mgrid">
       <div class="mc"><div class="mlbl">Slot Terisi</div><div class="mval" style="color:var(--red)" id="d-occ">—</div><div class="msub warn" id="d-avail">—</div></div>
+      <div class="mc"><div class="mlbl">Okupansi Hari Ini</div><div class="mval" style="color:var(--accent)" id="d-occ-pct">—</div><div class="msub" id="d-occ-pct-sub">—</div></div>
       <div class="mc"><div class="mlbl">Check-in</div><div class="mval" style="color:var(--blue)" id="d-ci">—</div><div class="msub">Hari ini</div></div>
       <div class="mc"><div class="mlbl">Check-out</div><div class="mval" style="color:var(--amber)" id="d-co">—</div><div class="msub warn">Sebelum 12.00</div></div>
       <div class="mc"><div class="mlbl">Pendapatan Hari Ini</div><div class="mval" style="color:var(--accent)" id="d-rev">Rp 0</div><div class="msub up" id="d-rev-sub">—</div></div>
@@ -321,9 +322,9 @@ textarea{resize:vertical;min-height:60px}
       <div style="height:6px"></div>
       <div class="cgrid" id="cal-grid"></div>
       <div class="cal-legend">
-        <div class="cli"><div class="clbox" style="background:var(--accent-l);border-color:#b8dece"></div>Tersedia</div>
-        <div class="cli"><div class="clbox" style="background:#fdf6e3;border-color:#f5dfa0"></div>Hampir Penuh</div>
-        <div class="cli"><div class="clbox" style="background:var(--red-l);border-color:#f5c6c4"></div>Penuh</div>
+        <div class="cli"><div class="clbox" style="background:var(--accent-l);border-color:#b8dece"></div>0–44% Tersedia</div>
+        <div class="cli"><div class="clbox" style="background:#fdf6e3;border-color:#f5dfa0"></div>45–83% Hampir Penuh</div>
+        <div class="cli"><div class="clbox" style="background:var(--red-l);border-color:#f5c6c4"></div>84–100% Penuh</div>
       </div>
     </div></div>
     <div class="card"><div class="ch"><span class="ct">Minggu Ini</span></div><div id="cal-upcoming" style="padding:8px 0"></div></div>
@@ -782,6 +783,9 @@ function rFull(){
   // Dashboard metrics
   const dOcc=document.getElementById('d-occ'); if(dOcc) dOcc.innerHTML=oc+'<span style="font-size:14px;color:var(--text3)">/18</span>';
   const dAvail=document.getElementById('d-avail'); if(dAvail) dAvail.textContent=av+' tersedia';
+  const occPct=Math.round(oc/18*100);
+  const dOccPct=document.getElementById('d-occ-pct'); if(dOccPct) dOccPct.textContent=occPct+'%';
+  const dOccPctSub=document.getElementById('d-occ-pct-sub'); if(dOccPctSub) dOccPctSub.textContent=occPct>=84?'Hampir penuh':occPct>=45?'Cukup ramai':'Masih lega';
   const today=todayStr();
   const dCi=document.getElementById('d-ci'); if(dCi) dCi.textContent=BOOKINGS.filter(b=>b.status==='checkin'&&b.ci===today).length;
   const dCo=document.getElementById('d-co'); if(dCo) dCo.textContent=BOOKINGS.filter(b=>b.status==='occupied'&&b.co===today).length;
@@ -1912,14 +1916,15 @@ function rCal(){
   for(let d=1;d<=dim;d++){
     const ds=`${CY}-${String(CM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const oc=occOn(ds),av=18-oc,isPast=ds<tds,isT=ds===tds;
+    const pct=Math.round(oc/18*100);
     let cls='ccell '+(oc>=15?'cfull':oc>=9?'chigh':'clow');
     if(isT)cls+=' today';if(isPast)cls+=' past';
     const occ_c=oc>=15?'var(--red)':oc>=9?'var(--amber)':'var(--accent)';
     cells+=`<div class="${cls}" onclick="${isPast?'':(`openDay('${ds}',${d})`)}">
       ${oc>=18?'<div class="cfullbadge">FULL</div>':''}
       <div class="cdate">${d}</div>
-      <div class="cocc" style="color:${occ_c}">${oc}</div>
-      <div class="coccsub">${av} sisa</div>
+      <div class="cocc" style="color:${occ_c}">${pct}%</div>
+      <div class="coccsub">${oc}/18</div>
     </div>`;
   }
   document.getElementById('cal-grid').innerHTML=cells;
@@ -1932,7 +1937,11 @@ function openDay(ds,d){
   document.getElementById('dd-title').textContent=`${d} ${MN[CM]} ${CY}`;
   const bks=BOOKINGS.filter(b=>{if(!b.ci||!b.co||b.status==='completed'&&b.completedAt<ds)return false;const dt=new Date(ds);return dt>=new Date(b.ci)&&dt<new Date(b.co);});
   const totalCats=bks.reduce((s,b)=>s+b.cats.length,0);
-  let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+  const dayPct=Math.round(totalCats/18*100);
+  let html=`<div style="text-align:center;margin-bottom:12px">
+    <span class="badge ${dayPct>=84?'br':dayPct>=45?'ba':'bg'}" style="font-size:14px;padding:6px 16px;font-weight:700">Okupansi ${dayPct}%</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
     <div style="background:var(--red-l);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--red)">${totalCats}</div><div style="font-size:11px;color:var(--text3)">Kucing Menginap</div></div>
     <div style="background:var(--accent-l);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--accent)">${18-totalCats}</div><div style="font-size:11px;color:var(--text3)">Slot Tersedia</div></div>
   </div>`;

@@ -873,14 +873,16 @@ function bkCard(b){
 
 function rAll(f){
   let list=[...BOOKINGS];
-  if(f==='checkin') list=list.filter(b=>b.status==='checkin');
-  else if(f==='checkout') list=list.filter(b=>b.status==='checkout');
+  const today=todayStr();
+  if(f==='checkin') list=list.filter(b=>b.status==='checkin'&&b.ci===today);
+  else if(f==='checkout') list=list.filter(b=>b.status==='occupied'&&b.co===today);
   else if(f==='active') list=list.filter(b=>b.status==='occupied');
   else if(f==='completed') list=list.filter(b=>b.status==='completed');
   else if(f==='cancelled') list=list.filter(b=>b.status==='cancelled');
   else list=list.filter(b=>b.status!=='completed'&&b.status!=='cancelled'); // 'all' = aktif saja
   const html=list.map(b=>bkCard(b)).join('');
-  document.getElementById('all-list').innerHTML=html||`<div class="es"><p>${f==='completed'?'Belum ada booking selesai':'Tidak ada booking aktif'}</p></div>`;
+  const emptyMsg={checkin:'Tidak ada check-in hari ini',checkout:'Tidak ada check-out hari ini',active:'Tidak ada yang sedang menginap',completed:'Belum ada booking selesai',cancelled:'Tidak ada booking dibatalkan'};
+  document.getElementById('all-list').innerHTML=html||`<div class="es"><p>${emptyMsg[f]||'Tidak ada booking aktif'}</p></div>`;
 }
 function rRecent(){
   const list=BOOKINGS.filter(b=>b.status!=='completed'&&b.status!=='cancelled').slice(0,5);

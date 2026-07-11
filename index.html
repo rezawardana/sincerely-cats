@@ -1050,7 +1050,7 @@ function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
       <div class="fgr full"><label>Pilih Slot *</label><select id="cbslot-${id}" onchange="refreshSlotDropdowns();calcAllCats()"><option value="">-- Pilih Slot --</option>${slotOpts}</select></div>
       <div class="fgr full">
         <label>Add-ons (opsional)</label>
-        <div class="asel" style="margin-top:4px">${ADDONS.map(a=>`<div class="aci" id="cbaci-${id}-${a.id}" onclick="togCbChk('${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}" onclick="event.stopPropagation();togCbChk('${id}','${a.id}')"><div class="acin">${a.name}</div><div class="acip">${rp(a.price)}/pmbr</div></div>`).join('')}</div>
+        <div class="asel" style="margin-top:4px">${ADDONS.map(a=>`<div class="aci" id="cbaci-${id}-${a.id}" onclick="cbRowClick(event,'${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}" onchange="syncCbSel('${id}','${a.id}')"><div class="acin">${a.name}</div><div class="acip">${rp(a.price)}/pmbr</div></div>`).join('')}</div>
       </div>
     </div>`;
   document.getElementById('cat-booking-rows').appendChild(div);
@@ -1059,11 +1059,16 @@ function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
   }
 }
 
-function togCbChk(rowId, aid){
+function cbRowClick(e, rowId, aid){
+  if(e.target.tagName==='INPUT') return; // biarkan checkbox toggle native-nya sendiri, onchange yang sync tampilan
+  const chk=document.getElementById('cbchk-'+rowId+'-'+aid);
+  chk.checked=!chk.checked;
+  syncCbSel(rowId, aid);
+}
+function syncCbSel(rowId, aid){
   const chk=document.getElementById('cbchk-'+rowId+'-'+aid);
   const el=document.getElementById('cbaci-'+rowId+'-'+aid);
-  chk.checked=!chk.checked;
-  el.classList.toggle('sel',chk.checked);
+  if(chk && el) el.classList.toggle('sel', chk.checked);
 }
 
 function calcAllCats(){

@@ -449,7 +449,7 @@ textarea{resize:vertical;min-height:60px}
         <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Estimasi Biaya</div>
         <div id="price-rows"></div>
         <div class="pr tot"><span>Total Estimasi</span><span id="pc-total">Rp 0</span></div>
-        <div class="pr" style="color:var(--text3);font-style:italic;font-size:12px"><span>Add-ons dihitung saat checkout</span><span>—</span></div>
+        <div class="pr" style="color:var(--text3);font-style:italic;font-size:11px"><span>* Estimasi add-on bisa disesuaikan saat checkout</span><span></span></div>
       </div>
     </div>
     <div class="mf">
@@ -993,15 +993,18 @@ function editBooking(bkId){
   document.getElementById('cat-booking-rows').innerHTML = '';
   b.cats.forEach(cat => {
     addCatBookingRow(cat.name, cat.breed, cat.slotId);
-    // Check addons
+    // Check addons + restore estimated qty
     const rowId = catRowCount;
     setTimeout(()=>{
       (cat.sa||[]).forEach(aid=>{
         const chk = document.getElementById('cbchk-'+rowId+'-'+aid);
         const aci = document.getElementById('cbaci-'+rowId+'-'+aid);
+        const qtyEl = document.getElementById('cbqty-'+rowId+'-'+aid);
         if(chk){ chk.checked=true; }
         if(aci){ aci.classList.add('sel'); }
+        if(qtyEl){ qtyEl.disabled=false; qtyEl.value=(cat.aq||{})[aid]||1; }
       });
+      calcAllCats();
     }, 50);
   });
 
@@ -1049,8 +1052,9 @@ function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
       <div class="fgr"><label>Ras</label><input type="text" id="cbbreed-${id}" placeholder="Persia, DSH..." value="${prefillBreed}"></div>
       <div class="fgr full"><label>Pilih Slot *</label><select id="cbslot-${id}" onchange="refreshSlotDropdowns();calcAllCats()"><option value="">-- Pilih Slot --</option>${slotOpts}</select></div>
       <div class="fgr full">
-        <label>Add-ons (opsional)</label>
-        <div class="asel" style="margin-top:4px">${ADDONS.map(a=>`<div class="aci" id="cbaci-${id}-${a.id}" onclick="cbRowClick(event,'${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}" onchange="syncCbSel('${id}','${a.id}')"><div class="acin">${a.name}</div><div class="acip">${rp(a.price)}/pmbr</div></div>`).join('')}</div>
+        <label>Add-ons (opsional) — isi estimasi jumlah pemberian</label>
+        <div class="asel" style="margin-top:4px">${ADDONS.map(a=>`<div class="aci" id="cbaci-${id}-${a.id}" onclick="cbRowClick(event,'${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}" onchange="syncCbSel('${id}','${a.id}')"><div class="acin">${a.name}</div><div class="acip">${rp(a.price)}/pmbr</div><input type="number" class="cb-addon-qty" id="cbqty-${id}-${a.id}" value="1" min="1" disabled onclick="event.stopPropagation()" oninput="calcAllCats()" style="width:48px;text-align:center;padding:5px 4px;font-size:12px;flex-shrink:0"></div>`).join('')}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">Estimasi bisa disesuaikan lagi saat checkout sesuai pemakaian aktual</div>
       </div>
     </div>`;
   document.getElementById('cat-booking-rows').appendChild(div);
@@ -1068,7 +1072,10 @@ function cbRowClick(e, rowId, aid){
 function syncCbSel(rowId, aid){
   const chk=document.getElementById('cbchk-'+rowId+'-'+aid);
   const el=document.getElementById('cbaci-'+rowId+'-'+aid);
+  const qtyEl=document.getElementById('cbqty-'+rowId+'-'+aid);
   if(chk && el) el.classList.toggle('sel', chk.checked);
+  if(qtyEl) qtyEl.disabled=!chk.checked;
+  calcAllCats();
 }
 
 function calcAllCats(){
@@ -1093,8 +1100,30 @@ function calcAllCats(){
   let priceRowsHtml=`<div class="pr"><span>${lbl} × ${validCats.length} kucing</span><span>${rp(totalBase)}</span></div>`;
   if(ef>0) priceRowsHtml+=`<div class="pr"><span>Early check-in × ${validCats.length}</span><span>${rp(ef*validCats.length)}</span></div>`;
   if(lf>0) priceRowsHtml+=`<div class="pr"><span>Late check-out × ${validCats.length}</span><span>${rp(lf*validCats.length)}</span></div>`;
+
+  // Hitung estimasi add-on dari semua kucing yang dicentang
+  let addonEst=0;
+  const addonLines={};
+  validCats.forEach(r=>{
+    const id=r.id.replace('cbrow-','');
+    ADDONS.forEach(a=>{
+      const chk=document.getElementById('cbchk-'+id+'-'+a.id);
+      if(chk?.checked){
+        const qty=parseInt(document.getElementById('cbqty-'+id+'-'+a.id)?.value)||1;
+        const amt=a.price*qty;
+        addonEst+=amt;
+        if(!addonLines[a.name]) addonLines[a.name]={qty:0,amt:0};
+        addonLines[a.name].qty+=qty;
+        addonLines[a.name].amt+=amt;
+      }
+    });
+  });
+  Object.entries(addonLines).forEach(([name,d])=>{
+    priceRowsHtml+=`<div class="pr"><span>${name} (est. ${d.qty}×)</span><span>${rp(d.amt)}</span></div>`;
+  });
+
   document.getElementById('price-rows').innerHTML=priceRowsHtml;
-  document.getElementById('pc-total').textContent=rp(totalBase);
+  document.getElementById('pc-total').textContent=rp(totalBase+addonEst);
   document.getElementById('pbox').style.display='block';
 }
 
@@ -1113,7 +1142,11 @@ function saveBk(){
     const slotId=parseInt(document.getElementById('cbslot-'+id)?.value);
     if(!name||!slotId){valid=false;return;}
     const sa=ADDONS.filter(a=>document.getElementById('cbchk-'+id+'-'+a.id)?.checked).map(a=>a.id);
-    cats.push({name,breed,slotId,sa,aq:{},ma:[]});
+    const aq={};
+    sa.forEach(aid=>{
+      aq[aid]=parseInt(document.getElementById('cbqty-'+id+'-'+aid)?.value)||1;
+    });
+    cats.push({name,breed,slotId,sa,aq,ma:[]});
   });
   if(!valid||!cats.length){toast('⚠ Isi nama kucing & slot untuk setiap kucing');return;}
   const usedSlots=cats.map(c=>c.slotId);
@@ -1548,8 +1581,8 @@ function buildInvoiceHTML(b, opts={}){
         ${disc>0?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;color:#f0c98a">
           <span>Diskon:</span><span>− ${rp(disc)}</span>
         </div>`:''}
-        ${addonTotal>0&&!isProforma?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
-          <span>Add-ons:</span><span>${rp(addonTotal)}</span>
+        ${addonTotal>0?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+          <span>Add-ons${isProforma?' (estimasi)':''}:</span><span>${rp(addonTotal)}</span>
         </div>`:''}
         <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;border-top:1px solid rgba(255,255,255,.3);padding-top:10px;margin-top:4px;margin-bottom:10px">
           <span>Total Amount:</span><span style="color:#f0c04a">${rp(grandTotal)}</span>

@@ -424,13 +424,16 @@ textarea{resize:vertical;min-height:60px}
 
         <!-- JADWAL SECTION -->
         <div class="sec-lbl">Jadwal Menginap</div>
-        <div class="fgr"><label>Check-in *</label><input type="date" id="b-ci" oninput="calcAllCats()"></div>
-        <div class="fgr"><label>Check-out *</label><input type="date" id="b-co" oninput="calcAllCats()"></div>
+        <div class="fgr"><label>Check-in *</label><input type="date" id="b-ci" oninput="refreshSlotDropdowns();calcAllCats()"></div>
+        <div class="fgr"><label>Check-out *</label><input type="date" id="b-co" oninput="refreshSlotDropdowns();calcAllCats()"></div>
         <div class="fgr"><label>Jam Check-in</label><select id="b-cih" onchange="calcAllCats()"><option value="0">Normal (12.00)</option><option value="1">Early +1j (11.00)</option><option value="2">Early +2j (10.00)</option><option value="3">Early +3j (09.00)</option></select></div>
         <div class="fgr"><label>Jam Check-out</label><select id="b-coh" onchange="calcAllCats()"><option value="0">Normal (12.00)</option><option value="1">Late +1j (13.00)</option><option value="2">Late +2j (14.00)</option><option value="3">Late +3j (15.00)</option></select></div>
 
         <!-- KUCING SECTION -->
         <div class="sec-lbl">Kucing yang Dititipkan</div>
+        <div id="slot-date-hint" style="display:none;grid-column:1/-1;background:var(--amber-l);border:1px solid #f0d898;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--amber);margin-bottom:10px">
+          ⚠ Isi tanggal check-in & check-out dulu supaya sistem bisa cek slot yang benar-benar kosong di rentang tanggal tersebut.
+        </div>
         <div class="fgr full">
           <div id="cat-booking-rows"></div>
           <button class="btn btn-g" style="width:100%;justify-content:center;padding:10px;font-size:13px;margin-top:4px" onclick="addCatBookingRow()">
@@ -623,6 +626,11 @@ function syncSlots(){
    ============================================================ */
 const rp = n => 'Rp '+Math.round(n).toLocaleString('id-ID');
 const nights = (a,b) => !a||!b ? 0 : Math.max(0,Math.round((new Date(b)-new Date(a))/86400000));
+// Ambil tanggal hari ini berdasarkan waktu LOKAL, bukan UTC (hindari salah tanggal dini hari)
+function todayStr(d=new Date()){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function baseRate(ci,n){
   let t=0;
   for(let i=0;i<n;i++){const d=new Date(ci);d.setDate(d.getDate()+i);t+=(d.getDay()===0||d.getDay()===6)?ROOM.we:ROOM.wd;}
@@ -662,6 +670,71 @@ function availSlots(){
   return SLOTS.filter(s=>s.status==='available');
 }
 
+// ============================================================
+// OPSI A — Slot availability berbasis OVERLAP TANGGAL
+// Slot dianggap terpakai hanya jika ada booking aktif (bukan
+// completed/cancelled) dengan rentang tanggal yang beririsan.
+// ============================================================
+function getAvailableSlotsForDates(ci, co, excludeBookingId=null){
+  // Kalau tanggal belum lengkap, fallback ke slot yang statusnya available hari ini
+  if(!ci || !co){
+    return availSlots();
+  }
+  const rangeStart = new Date(ci);
+  const rangeEnd = new Date(co);
+  const conflictingSlotIds = new Set();
+
+  BOOKINGS.forEach(b=>{
+    if(b.status==='completed' || b.status==='cancelled') return;
+    if(excludeBookingId && b.id===excludeBookingId) return;
+    if(!b.ci || !b.co) return;
+    const bStart = new Date(b.ci);
+    const bEnd = new Date(b.co);
+    // Overlap check: dua rentang [start,end) beririsan jika start1 < end2 && start2 < end1
+    const overlap = rangeStart < bEnd && bStart < rangeEnd;
+    if(overlap){
+      b.cats.forEach(cat=>conflictingSlotIds.add(cat.slotId));
+    }
+  });
+
+  return SLOTS.filter(s=>!conflictingSlotIds.has(s.id));
+}
+
+// Refresh semua dropdown slot di form booking berdasarkan tanggal terkini
+function refreshSlotDropdowns(){
+  const ci=document.getElementById('b-ci').value;
+  const co=document.getElementById('b-co').value;
+  const availForDates = getAvailableSlotsForDates(ci, co, editingBkId);
+
+  document.querySelectorAll('[id^="cbslot-"]').forEach(sel=>{
+    const rowId = sel.id.replace('cbslot-','');
+    const currentVal = sel.value;
+
+    // Slot yang sudah dipilih di baris LAIN pada form ini — exclude juga
+    const pickedInOtherRows = [];
+    document.querySelectorAll('[id^="cbslot-"]').forEach(other=>{
+      if(other.id!==sel.id && other.value) pickedInOtherRows.push(parseInt(other.value));
+    });
+
+    let options = availForDates.filter(s=>!pickedInOtherRows.includes(s.id));
+    // Kalau slot yang sedang terpilih di baris ini tidak ada di list (misal karena
+    // ini slot yang sedang dipakai booking yang diedit), tetap tampilkan sebagai opsi
+    if(currentVal && !options.find(s=>s.id===parseInt(currentVal))){
+      options = [{id:parseInt(currentVal), _current:true}, ...options];
+    }
+
+    const optsHtml = options.map(s=>
+      `<option value="${s.id}">Slot ${s.id}${s._current?' (booking ini)':''}</option>`
+    ).join('');
+    sel.innerHTML = '<option value="">-- Pilih Slot --</option>'+optsHtml;
+    if(currentVal) sel.value = currentVal;
+  });
+
+  // Tampilkan hint kalau tanggal belum lengkap
+  const hintEl = document.getElementById('slot-date-hint');
+  if(hintEl) hintEl.style.display = (!ci||!co) ? 'block' : 'none';
+}
+
 /* ============================================================
    RENDER SLOTS
    ============================================================ */
@@ -698,7 +771,7 @@ function rFull(){
   const dCi=document.getElementById('d-ci'); if(dCi) dCi.textContent=BOOKINGS.filter(b=>b.status==='checkin').length;
   const dCo=document.getElementById('d-co'); if(dCo) dCo.textContent=BOOKINGS.filter(b=>b.status==='checkout').length;
   // Hitung pendapatan hari ini dari TXS
-  const today=new Date().toISOString().split('T')[0];
+  const today=todayStr();
   const todayRev=TXS.filter(t=>t.date===today).reduce((s,t)=>s+t.tot,0);
   const dRev=document.getElementById('d-rev'); if(dRev) dRev.textContent=todayRev>0?rp(todayRev):'Rp 0';
   const dRevSub=document.getElementById('d-rev-sub'); if(dRevSub) dRevSub.textContent=todayRev>0?TXS.filter(t=>t.date===today).length+' transaksi hari ini':'Belum ada transaksi hari ini';
@@ -864,13 +937,14 @@ function openBooking(){
   }
   document.getElementById('b-wa').value='';
   document.getElementById('b-notes').value='';
-  document.getElementById('b-ci').value=new Date().toISOString().split('T')[0];
+  document.getElementById('b-ci').value=todayStr();
   document.getElementById('b-co').value='';
   document.getElementById('b-cih').value='0';
   document.getElementById('b-coh').value='0';
   document.getElementById('cat-booking-rows').innerHTML='';
   document.getElementById('pbox').style.display='none';
   addCatBookingRow();
+  refreshSlotDropdowns();
   document.getElementById('bk-ov').classList.add('open');
 }
 
@@ -900,23 +974,10 @@ function editBooking(bkId){
   // Fill cats
   document.getElementById('cat-booking-rows').innerHTML = '';
   b.cats.forEach(cat => {
-    addCatBookingRow(cat.name, cat.breed);
-    // Set slot + addons for this row
+    addCatBookingRow(cat.name, cat.breed, cat.slotId);
+    // Check addons
     const rowId = catRowCount;
     setTimeout(()=>{
-      const slotSel = document.getElementById('cbslot-'+rowId);
-      if(slotSel){
-        // Add the current slot as option (it's occupied by this booking)
-        const hasOpt = Array.from(slotSel.options).find(o=>o.value==String(cat.slotId));
-        if(!hasOpt){
-          const opt = document.createElement('option');
-          opt.value = cat.slotId;
-          opt.textContent = 'Slot '+cat.slotId+' (saat ini)';
-          slotSel.insertBefore(opt, slotSel.firstChild.nextSibling);
-        }
-        slotSel.value = cat.slotId;
-      }
-      // Check addons
       (cat.sa||[]).forEach(aid=>{
         const chk = document.getElementById('cbchk-'+rowId+'-'+aid);
         const aci = document.getElementById('cbaci-'+rowId+'-'+aid);
@@ -942,32 +1003,42 @@ function fillOwnerData(){
   document.getElementById('b-wa').value=opt?opt.dataset.wa||'':'';
 }
 
-function addCatBookingRow(prefillName='', prefillBreed=''){
+function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
   catRowCount++;
   const id=catRowCount;
-  const avail=availSlots();
+  const ci=document.getElementById('b-ci').value;
+  const co=document.getElementById('b-co').value;
+  const avail=getAvailableSlotsForDates(ci, co, editingBkId);
   // Also exclude slots already selected in other rows in this form
   const alreadyPicked=[];
   document.querySelectorAll('[id^="cbslot-"]').forEach(sel=>{if(sel.value) alreadyPicked.push(parseInt(sel.value));});
-  const slotOpts=avail.filter(s=>!alreadyPicked.includes(s.id)).map(s=>`<option value="${s.id}">Slot ${s.id}</option>`).join('');
+  let slotList=avail.filter(s=>!alreadyPicked.includes(s.id));
+  // Kalau ada prefillSlotId (mode edit) dan belum ada di list, tambahkan
+  if(prefillSlotId && !slotList.find(s=>s.id===prefillSlotId)){
+    slotList=[{id:prefillSlotId,_current:true}, ...slotList];
+  }
+  const slotOpts=slotList.map(s=>`<option value="${s.id}">Slot ${s.id}${s._current?' (booking ini)':''}</option>`).join('');
   const div=document.createElement('div');
   div.id='cbrow-'+id;
   div.className='cat-booking-row';
   div.innerHTML=`
     <div class="cat-booking-row-header">
       <div class="cat-booking-row-title">🐱 Kucing ${id}</div>
-      ${id>1?`<button class="btn btn-d" style="padding:4px 10px;font-size:11px" onclick="document.getElementById('cbrow-${id}').remove();calcAllCats()">Hapus</button>`:''}
+      ${id>1?`<button class="btn btn-d" style="padding:4px 10px;font-size:11px" onclick="document.getElementById('cbrow-${id}').remove();refreshSlotDropdowns();calcAllCats()">Hapus</button>`:''}
     </div>
     <div class="fg">
       <div class="fgr"><label>Nama Kucing *</label><input type="text" id="cbname-${id}" placeholder="cth. Mochi" value="${prefillName}" oninput="calcAllCats()"></div>
       <div class="fgr"><label>Ras</label><input type="text" id="cbbreed-${id}" placeholder="Persia, DSH..." value="${prefillBreed}"></div>
-      <div class="fgr full"><label>Pilih Slot *</label><select id="cbslot-${id}" onchange="calcAllCats()"><option value="">-- Pilih Slot --</option>${slotOpts}</select></div>
+      <div class="fgr full"><label>Pilih Slot *</label><select id="cbslot-${id}" onchange="refreshSlotDropdowns();calcAllCats()"><option value="">-- Pilih Slot --</option>${slotOpts}</select></div>
       <div class="fgr full">
         <label>Add-ons (opsional)</label>
         <div class="asel" style="margin-top:4px">${ADDONS.map(a=>`<div class="aci" id="cbaci-${id}-${a.id}" onclick="togCbChk('${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}" onclick="event.stopPropagation();togCbChk('${id}','${a.id}')"><div class="acin">${a.name}</div><div class="acip">${rp(a.price)}/pmbr</div></div>`).join('')}</div>
       </div>
     </div>`;
   document.getElementById('cat-booking-rows').appendChild(div);
+  if(prefillSlotId){
+    document.getElementById('cbslot-'+id).value = prefillSlotId;
+  }
 }
 
 function togCbChk(rowId, aid){
@@ -1024,6 +1095,15 @@ function saveBk(){
   if(!valid||!cats.length){toast('⚠ Isi nama kucing & slot untuk setiap kucing');return;}
   const usedSlots=cats.map(c=>c.slotId);
   if(new Set(usedSlots).size!==usedSlots.length){toast('⚠ Slot tidak boleh sama');return;}
+
+  // Validasi akhir: pastikan semua slot benar-benar available untuk rentang tanggal ini
+  const trulyAvailable=getAvailableSlotsForDates(ci, co, editingBkId).map(s=>s.id);
+  const conflict=usedSlots.find(id=>!trulyAvailable.includes(id));
+  if(conflict){
+    toast('⚠ Slot '+conflict+' sudah terpakai booking lain di tanggal ini — pilih slot lain');
+    refreshSlotDropdowns();
+    return;
+  }
 
   const wa=document.getElementById('b-wa').value;
   const eh=parseInt(document.getElementById('b-cih').value)||0;
@@ -1089,7 +1169,7 @@ function cancelBooking(bkId){
     hideLoading();
     if(res.success){
       b.status='cancelled';
-      b.cancelledAt=new Date().toISOString().split('T')[0];
+      b.cancelledAt=todayStr();
       syncSlots();
       rMini();rFull();rRecent();rAll('all');
       toast('❌ Booking '+b.owner+' dibatalkan');
@@ -1408,7 +1488,7 @@ function buildInvoiceHTML(b, opts={}){
 
     <hr style="border:none;border-top:2px solid #1a1916;margin:12px 0 16px">
 
-    <div style="text-align:right;font-size:12px;color:#6b6860;margin-bottom:20px">Date: ${fmtDateEN(new Date().toISOString().split('T')[0])}</div>
+    <div style="text-align:right;font-size:12px;color:#6b6860;margin-bottom:20px">Date: ${fmtDateEN(todayStr())}</div>
 
     <!-- INVOICE TO -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
@@ -1697,14 +1777,14 @@ function finalizeCO(){
     if(res.success){
       // Update local state
       TXS.unshift({
-        date:new Date().toISOString().split('T')[0],
+        date:todayStr(),
         id:b.id, owner:b.owner,
         cats:b.cats.map(c=>c.name).join(', '),
         n:nights(b.ci,b.co),
         base:baseAmt, ao:aoAmt, disc, dp, tot
       });
       b.status='completed';
-      b.completedAt=new Date().toISOString().split('T')[0];
+      b.completedAt=todayStr();
       b.finalTotal=tot;
       syncSlots();
       closeOv('pl-ov');
@@ -1812,7 +1892,7 @@ function rCal(){
   document.getElementById('cal-title').textContent=MN[CM]+' '+CY;
   document.getElementById('cal-hdrs').innerHTML=['Min','Sen','Sel','Rab','Kam','Jum','Sab'].map(d=>`<div class="cdhdr">${d}</div>`).join('');
   const fd=new Date(CY,CM,1).getDay(),dim=new Date(CY,CM+1,0).getDate();
-  const tds=new Date().toISOString().split('T')[0];
+  const tds=todayStr();
   let cells='';
   for(let i=0;i<fd;i++) cells+=`<div class="ccell empty"></div>`;
   for(let d=1;d<=dim;d++){
@@ -1967,7 +2047,7 @@ function rRevChart(){
   for(let i=6;i>=0;i--){
     const d=new Date(today);
     d.setDate(d.getDate()-i);
-    const ds=d.toISOString().split('T')[0];
+    const ds=todayStr(d);
     const dayLabel=DAYS_ID[d.getDay()];
     const isToday=i===0;
     // Sum transactions for this date

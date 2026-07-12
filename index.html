@@ -249,6 +249,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="snav-lbl">Data</div>
       <button class="sni" onclick="nav('customers',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87"/></svg>Pelanggan</button>
       <button class="sni" onclick="nav('reports',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Laporan</button>
+      <button class="sni" onclick="nav('expenses',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M15 9.5c0-1.5-1.5-2.5-3-2.5s-3 1-3 2.5 1.5 2 3 2.5 3 1 3 2.5-1.5 2.5-3 2.5-3-1-3-2.5"/></svg>Pengeluaran</button>
     </div>
     <div class="snav-sec">
       <div class="snav-lbl">Sistem</div>
@@ -359,12 +360,42 @@ textarea{resize:vertical;min-height:60px}
   <!-- REPORTS -->
   <div class="page" id="page-reports">
     <div class="mgrid">
-      <div class="mc"><div class="mlbl">Bulan Ini</div><div class="mval" style="color:var(--accent);font-size:20px" id="r-rev">Rp 0</div><div class="msub up" id="r-rev-sub">—</div></div>
+      <div class="mc"><div class="mlbl">Pendapatan</div><div class="mval" style="color:var(--accent);font-size:20px" id="r-rev">Rp 0</div><div class="msub up" id="r-rev-sub">—</div></div>
+      <div class="mc"><div class="mlbl">Pengeluaran</div><div class="mval" style="color:var(--red);font-size:20px" id="r-exp">Rp 0</div><div class="msub" id="r-exp-sub">bulan ini</div></div>
+      <div class="mc"><div class="mlbl">Laba Bersih</div><div class="mval" style="font-size:20px" id="r-profit">Rp 0</div><div class="msub" id="r-profit-sub">—</div></div>
       <div class="mc"><div class="mlbl">Booking</div><div class="mval" id="r-bk">0</div><div class="msub" id="r-bk-sub">bulan ini</div></div>
     </div>
     <div class="card"><div class="ch"><span class="ct">Pendapatan 7 Hari Terakhir</span></div><div class="cb"><div class="barchart" id="rev-chart"></div><div style="margin-top:10px;font-size:12px;color:var(--text3)" id="rev-chart-total">—</div></div></div>
     <div class="card"><div class="ch"><span class="ct">Add-on Breakdown</span></div><div class="cb" id="addon-breakdown"></div></div>
     <div class="card"><div class="ch"><span class="ct">Riwayat Transaksi</span></div><div id="tx-list" style="padding:8px 0"></div></div>
+  </div>
+
+  <!-- EXPENSES -->
+  <div class="page" id="page-expenses">
+    <div class="ph">
+      <div><div class="ph-title">Pengeluaran</div><div class="ph-sub" id="exp-sub">—</div></div>
+      <button class="btn btn-p" onclick="openExpense()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Tambah</button>
+    </div>
+    <div class="mgrid" style="grid-template-columns:1fr">
+      <div class="mc"><div class="mlbl">Total Pengeluaran Bulan Ini</div><div class="mval" style="color:var(--red)" id="exp-month-total">Rp 0</div><div class="msub" id="exp-month-count">0 transaksi</div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Kategori Pengeluaran</span></div>
+      <div class="cb">
+        <div class="alist" id="exp-cat-list"></div>
+        <div style="border-top:1px solid var(--border);padding-top:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Tambah Kategori Baru</div>
+          <div class="fg" style="grid-template-columns:1fr">
+            <div class="fgr"><input type="text" id="ec-name" placeholder="cth. Gaji Karyawan, Listrik, Makanan Kucing"></div>
+          </div>
+          <button class="btn btn-p btn-full" style="margin-top:10px" onclick="addExpenseCategory()">Tambah Kategori</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Riwayat Pengeluaran</span></div>
+      <div id="exp-list" style="padding:8px 0"></div>
+    </div>
   </div>
 
   <!-- SETTINGS -->
@@ -547,6 +578,25 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<!-- EXPENSE MODAL -->
+<div class="ov" id="ex-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="ex-title">Tambah Pengeluaran</div><button class="mc2" onclick="closeOv('ex-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fgr"><label>Tanggal *</label><input type="date" id="ex-date"></div>
+        <div class="fgr"><label>Kategori *</label><select id="ex-cat"><option value="">-- Pilih Kategori --</option></select></div>
+        <div class="fgr full"><label>Deskripsi</label><input type="text" id="ex-desc" placeholder="cth. Beli pasir kucing 10 sak"></div>
+        <div class="fgr full"><label>Nominal (Rp) *</label><input type="number" id="ex-amount" placeholder="cth. 350000"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeOv('ex-ov')">Batal</button>
+      <button class="btn btn-p" onclick="saveExpense()">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <!-- CALENDAR DAY DETAIL -->
 <div class="ov" id="dd-ov">
   <div class="modal">
@@ -577,6 +627,10 @@ textarea{resize:vertical;min-height:60px}
     <button onclick="navMore('reports')" class="more-item" id="mmi-reports">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="18" height="18" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
       Laporan
+    </button>
+    <button onclick="navMore('expenses')" class="more-item" id="mmi-expenses">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="18" height="18" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M15 9.5c0-1.5-1.5-2.5-3-2.5s-3 1-3 2.5 1.5 2 3 2.5 3 1 3 2.5-1.5 2.5-3 2.5-3-1-3-2.5"/></svg>
+      Pengeluaran
     </button>
     <button onclick="navMore('settings')" class="more-item" id="mmi-settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="18" height="18" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -610,6 +664,8 @@ let BOOKINGS = []; // diisi dari Google Sheets
 let CUSTS = []; // diisi dari Google Sheets saat loadAllData()
 
 let TXS = []; // diisi dari Google Sheets
+let EXPENSE_CATEGORIES = []; // diisi dari Google Sheets
+let EXPENSES = []; // diisi dari Google Sheets
 
 /* Sync SLOTS from BOOKINGS on load */
 function syncSlots(){
@@ -1334,12 +1390,14 @@ async function loadAllData(){
   showLoading('Menghubungkan ke database...');
   try {
     // Load in parallel
-    const [bkRes, custRes, addonRes, txRes, settRes] = await Promise.all([
+    const [bkRes, custRes, addonRes, txRes, settRes, expCatRes, expRes] = await Promise.all([
       apiGet('getBookings'),
       apiGet('getCustomers'),
       apiGet('getAddons'),
       apiGet('getTransactions'),
       apiGet('getSettings'),
+      apiGet('getExpenseCategories'),
+      apiGet('getExpenses'),
     ]);
 
     if(bkRes.success){
@@ -1368,6 +1426,19 @@ async function loadAllData(){
       txRes.data.forEach(t => {
         t.date = t.date ? String(t.date).split('T')[0] : '';
         TXS.push(t);
+      });
+    }
+
+    if(expCatRes.success){
+      EXPENSE_CATEGORIES.length = 0;
+      expCatRes.data.forEach(c => EXPENSE_CATEGORIES.push(c));
+    }
+
+    if(expRes.success){
+      EXPENSES.length = 0;
+      expRes.data.forEach(e => {
+        e.date = e.date ? String(e.date).split('T')[0] : '';
+        EXPENSES.push(e);
       });
     }
 
@@ -2063,6 +2134,173 @@ function delAddon(id){
     else { toast('⚠ Gagal hapus'); }
   });
 }
+
+/* ============================================================
+   EXPENSES — Pengeluaran
+   ============================================================ */
+function rExpenseCategories(){
+  const list=document.getElementById('exp-cat-list');
+  if(!list) return;
+  if(!EXPENSE_CATEGORIES.length){
+    list.innerHTML='<div class="es"><p>Belum ada kategori. Tambahkan di bawah.</p></div>';
+    return;
+  }
+  list.innerHTML=EXPENSE_CATEGORIES.map(c=>`
+    <div class="aitem" id="ec-item-${c.id}">
+      <div class="ainame">${c.name}</div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="startEditExpCat('${c.id}')">Edit</button>
+        <button class="btn btn-d" style="padding:6px 10px;font-size:12px" onclick="delExpenseCategory('${c.id}')">Hapus</button>
+      </div>
+    </div>`).join('');
+}
+function startEditExpCat(id){
+  const c=EXPENSE_CATEGORIES.find(x=>x.id===id);
+  document.getElementById('ec-item-'+id).innerHTML=`
+    <input type="text" value="${c.name}" id="ecname-${id}" style="flex:1;font-size:13px">
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn btn-p" style="padding:6px 10px;font-size:12px" onclick="saveEditExpCat('${id}')">Simpan</button>
+      <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="rExpenseCategories()">Batal</button>
+    </div>`;
+}
+function saveEditExpCat(id){
+  const name=document.getElementById('ecname-'+id).value.trim();
+  if(!name){toast('⚠ Nama wajib diisi');return;}
+  apiPost({action:'updateExpenseCategory',id,name}).then(res=>{
+    if(res.success){
+      const c=EXPENSE_CATEGORIES.find(x=>x.id===id);c.name=name;
+      rExpenseCategories();rExpenseCatDropdown();toast('✓ Kategori diupdate');
+    } else { toast('⚠ Gagal update'); }
+  });
+}
+function addExpenseCategory(){
+  const name=document.getElementById('ec-name').value.trim();
+  if(!name){toast('⚠ Nama kategori wajib diisi');return;}
+  apiPost({action:'saveExpenseCategory',name}).then(res=>{
+    if(res.success){
+      EXPENSE_CATEGORIES.push({id:res.category_id,name});
+      document.getElementById('ec-name').value='';
+      rExpenseCategories();rExpenseCatDropdown();toast('✓ Kategori '+name+' ditambahkan');
+    } else { toast('⚠ Gagal: '+(res.error||'')); }
+  });
+}
+function delExpenseCategory(id){
+  apiPost({action:'deleteExpenseCategory',category_id:id}).then(res=>{
+    if(res.success){EXPENSE_CATEGORIES=EXPENSE_CATEGORIES.filter(c=>c.id!==id);rExpenseCategories();rExpenseCatDropdown();toast('Kategori dihapus');}
+    else { toast('⚠ Gagal hapus'); }
+  });
+}
+function rExpenseCatDropdown(){
+  const sel=document.getElementById('ex-cat');
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">-- Pilih Kategori --</option>'+EXPENSE_CATEGORIES.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+let editingExpId=null;
+function openExpense(){
+  editingExpId=null;
+  document.getElementById('ex-title').textContent='Tambah Pengeluaran';
+  document.getElementById('ex-date').value=todayStr();
+  document.getElementById('ex-desc').value='';
+  document.getElementById('ex-amount').value='';
+  rExpenseCatDropdown();
+  document.getElementById('ex-cat').value='';
+  if(!EXPENSE_CATEGORIES.length){
+    toast('⚠ Tambah kategori dulu di halaman Pengeluaran');
+    return;
+  }
+  document.getElementById('ex-ov').classList.add('open');
+}
+function editExpense(id){
+  const ex=EXPENSES.find(x=>x.id===id);
+  if(!ex) return;
+  editingExpId=id;
+  document.getElementById('ex-title').textContent='Edit Pengeluaran';
+  document.getElementById('ex-date').value=ex.date;
+  document.getElementById('ex-desc').value=ex.desc||'';
+  document.getElementById('ex-amount').value=ex.amount;
+  rExpenseCatDropdown();
+  document.getElementById('ex-cat').value=ex.categoryId;
+  document.getElementById('ex-ov').classList.add('open');
+}
+function saveExpense(){
+  const date=document.getElementById('ex-date').value;
+  const categoryId=document.getElementById('ex-cat').value;
+  const desc=document.getElementById('ex-desc').value.trim();
+  const amount=parseInt(document.getElementById('ex-amount').value)||0;
+  if(!date||!categoryId||!amount){toast('⚠ Lengkapi tanggal, kategori, dan nominal');return;}
+
+  if(editingExpId){
+    showLoading('Menyimpan perubahan...');
+    apiPost({action:'updateExpense',id:editingExpId,date,category_id:categoryId,desc,amount}).then(res=>{
+      hideLoading();
+      if(res.success){
+        const ex=EXPENSES.find(x=>x.id===editingExpId);
+        ex.date=date;ex.categoryId=categoryId;ex.desc=desc;ex.amount=amount;
+        closeOv('ex-ov');rExpenses();editingExpId=null;
+        toast('✓ Pengeluaran diupdate');
+      } else { toast('⚠ Gagal: '+(res.error||'')); }
+    }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));});
+  } else {
+    showLoading('Menyimpan pengeluaran...');
+    apiPost({action:'saveExpense',date,category_id:categoryId,desc,amount}).then(res=>{
+      hideLoading();
+      if(res.success){
+        EXPENSES.unshift({id:res.expense_id,date,categoryId,desc,amount});
+        closeOv('ex-ov');rExpenses();
+        toast('✓ Pengeluaran tersimpan');
+      } else { toast('⚠ Gagal: '+(res.error||'')); }
+    }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));});
+  }
+}
+function deleteExpense(id){
+  if(!confirm('Yakin hapus pengeluaran ini?')) return;
+  apiPost({action:'deleteExpense',id}).then(res=>{
+    if(res.success){EXPENSES=EXPENSES.filter(x=>x.id!==id);rExpenses();toast('Pengeluaran dihapus');}
+    else { toast('⚠ Gagal hapus'); }
+  });
+}
+function rExpenses(){
+  rExpenseCategories();
+  rExpenseCatDropdown();
+  const today=new Date();
+  const thisMonth=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+  const monthExp=EXPENSES.filter(e=>e.date&&e.date.startsWith(thisMonth));
+  const monthTotal=monthExp.reduce((s,e)=>s+e.amount,0);
+  const totalEl=document.getElementById('exp-month-total'); if(totalEl) totalEl.textContent=rp(monthTotal);
+  const countEl=document.getElementById('exp-month-count'); if(countEl) countEl.textContent=monthExp.length+' transaksi';
+  const subEl=document.getElementById('exp-sub'); if(subEl) subEl.textContent=EXPENSES.length+' total pengeluaran tercatat';
+
+  const list=document.getElementById('exp-list');
+  if(!list) return;
+  if(!EXPENSES.length){
+    list.innerHTML='<div class="es"><p>Belum ada pengeluaran tercatat</p></div>';
+    return;
+  }
+  const sorted=[...EXPENSES].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  list.innerHTML=sorted.map(e=>{
+    const cat=EXPENSE_CATEGORIES.find(c=>c.id===e.categoryId);
+    return `<div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <span class="badge bp">${cat?cat.name:'Tanpa kategori'}</span>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--red)">− ${rp(e.amount)}</div>
+      </div>
+      ${e.desc?`<div style="font-size:13px;color:var(--text2);margin-top:4px">${e.desc}</div>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <div style="font-size:11px;color:var(--text3)">${e.date}</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-g" style="padding:4px 10px;font-size:11px" onclick="editExpense('${e.id}')">Edit</button>
+          <button class="btn btn-d" style="padding:4px 10px;font-size:11px" onclick="deleteExpense('${e.id}')">Hapus</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function saveRoom(){
   ROOM.wd=parseInt(document.getElementById('s-wd').value)||70000;
   ROOM.we=parseInt(document.getElementById('s-we').value)||90000;
@@ -2088,6 +2326,20 @@ function rTX(){
   const rRevEl=document.getElementById('r-rev'); if(rRevEl) rRevEl.textContent=rp(monthRev);
   const rRevSub=document.getElementById('r-rev-sub'); if(rRevSub) rRevSub.textContent=monthTXS.length>0?'dari '+monthTXS.length+' transaksi':'Belum ada transaksi';
   const rBkEl=document.getElementById('r-bk'); if(rBkEl) rBkEl.textContent=BOOKINGS.filter(b=>b.ci&&b.ci.startsWith(thisMonth)).length;
+
+  // Pengeluaran & Laba Bersih bulan ini
+  const monthExp=EXPENSES.filter(e=>e.date&&e.date.startsWith(thisMonth));
+  const monthExpTotal=monthExp.reduce((s,e)=>s+e.amount,0);
+  const rExpEl=document.getElementById('r-exp'); if(rExpEl) rExpEl.textContent=rp(monthExpTotal);
+  const rExpSub=document.getElementById('r-exp-sub'); if(rExpSub) rExpSub.textContent=monthExp.length+' transaksi bulan ini';
+  const profit=monthRev-monthExpTotal;
+  const rProfitEl=document.getElementById('r-profit');
+  if(rProfitEl){
+    rProfitEl.textContent=rp(profit);
+    rProfitEl.style.color=profit>=0?'var(--accent)':'var(--red)';
+  }
+  const rProfitSub=document.getElementById('r-profit-sub'); if(rProfitSub) rProfitSub.textContent=profit>=0?'Untung bulan ini':'Rugi bulan ini';
+
   document.getElementById('tx-list').innerHTML=TXS.map(t=>`
     <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
@@ -2168,8 +2420,8 @@ function rAddonBreak(){
 /* ============================================================
    NAV
    ============================================================ */
-const PAGE_TITLES={dashboard:'Dashboard',slots:'Slot & Kamar',calendar:'Kalender',bookings:'Booking',customers:'Pelanggan',reports:'Laporan',settings:'Pengaturan'};
-const PAGE_SUBS={dashboard:'/ Ringkasan Hari Ini',slots:'/ Status Real-time',calendar:'/ Occupancy per Tanggal',bookings:'/ Semua Reservasi',customers:'/ Database',reports:'/ Keuangan',settings:'/ Harga & Layanan'};
+const PAGE_TITLES={dashboard:'Dashboard',slots:'Slot & Kamar',calendar:'Kalender',bookings:'Booking',customers:'Pelanggan',reports:'Laporan',expenses:'Pengeluaran',settings:'Pengaturan'};
+const PAGE_SUBS={dashboard:'/ Ringkasan Hari Ini',slots:'/ Status Real-time',calendar:'/ Occupancy per Tanggal',bookings:'/ Semua Reservasi',customers:'/ Database',reports:'/ Keuangan',expenses:'/ Catatan Biaya',settings:'/ Harga & Layanan'};
 
 function nav(page,btn){
   if(typeof closeMore==='function') closeMore();
@@ -2187,6 +2439,7 @@ function nav(page,btn){
   if(page==='bookings') rAll('all');
   if(page==='customers') rCust();
   if(page==='reports'){rTX();rRevChart();rAddonBreak();}
+  if(page==='expenses') rExpenses();
   if(page==='settings') rAddonList();
 }
 function navTo(page){ nav(page, document.getElementById('bn-'+page)); }
@@ -2224,11 +2477,12 @@ function navMore(page){
   const pageEl=document.getElementById('page-'+page);
   if(pageEl) pageEl.classList.add('active');
   const dt=document.getElementById('dt-title');
-  const PAGE_TITLES={customers:'Pelanggan',reports:'Laporan',settings:'Pengaturan'};
-  const PAGE_SUBS={customers:'/ Database',reports:'/ Keuangan',settings:'/ Harga & Layanan'};
+  const PAGE_TITLES={customers:'Pelanggan',reports:'Laporan',expenses:'Pengeluaran',settings:'Pengaturan'};
+  const PAGE_SUBS={customers:'/ Database',reports:'/ Keuangan',expenses:'/ Catatan Biaya',settings:'/ Harga & Layanan'};
   if(dt) dt.innerHTML=`${PAGE_TITLES[page]||page} <span>${PAGE_SUBS[page]||''}</span>`;
   if(page==='customers') rCust();
   if(page==='reports'){rTX();rRevChart();rAddonBreak();}
+  if(page==='expenses') rExpenses();
   if(page==='settings') rAddonList();
 }
 

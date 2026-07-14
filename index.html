@@ -696,6 +696,10 @@ function syncSlots(){
    UTILS
    ============================================================ */
 const rp = n => 'Rp '+Math.round(n).toLocaleString('id-ID');
+// Bikin nama file PDF yang aman & rapi, contoh: "BK-001_Budi_Santoso"
+function safeFilename(str){
+  return String(str||'').trim().replace(/[^a-zA-Z0-9 -]/g,'').replace(/\s+/g,'_');
+}
 const nights = (a,b) => !a||!b ? 0 : Math.max(0,Math.round((new Date(b)-new Date(a))/86400000));
 // Ambil tanggal hari ini berdasarkan waktu LOKAL, bukan UTC (hindari salah tanggal dini hari)
 function todayStr(d=new Date()){
@@ -1240,7 +1244,7 @@ function saveBk(){
         b.owner=owner; b.wa=wa; b.ci=ci; b.co=co; b.eh=eh; b.lh=lh; b.notes=notes; b.cats=cats;
         syncSlots();
         closeOv('bk-ov');
-        rMini();rFull();rRecent();rAll('all');
+        rMini();rFull();rRecent();rAll(currentBkFilter);
         toast('✓ Booking '+editingBkId+' berhasil diupdate');
         editingBkId=null;
       } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
@@ -1285,7 +1289,7 @@ function cancelBooking(bkId){
       b.status='cancelled';
       b.cancelledAt=todayStr();
       syncSlots();
-      rMini();rFull();rRecent();rAll('all');
+      rMini();rFull();rRecent();rAll(currentBkFilter);
       toast('❌ Booking '+b.owner+' dibatalkan');
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
   }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal')); });
@@ -1301,7 +1305,7 @@ function doCheckin(bkId){
       b.status='occupied';
       syncSlots();
       closeOv('bd-ov');closeOv('bk-ov');
-      rMini();rFull();rRecent();rAll('all');
+      rMini();rFull();rRecent();rAll(currentBkFilter);
       toast('✓ Check-in '+b.owner+' berhasil!');
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
   }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
@@ -1740,7 +1744,7 @@ function confirmDP(){
     if(res.success){
       b.dp=dpAmt; b.dpConfirmed=true;
       closeOv('pi-ov');
-      rAll('all');rRecent();
+      rAll(currentBkFilter);rRecent();
       const msg = discAmt>0
         ? '✓ DP '+rp(dpAmt)+' + Diskon '+rp(discAmt)+' tercatat'
         : '✓ DP '+rp(dpAmt)+' tercatat untuk '+b.owner;
@@ -1757,8 +1761,9 @@ function printPI(){
   const dpAmt = b._dpAmt || b.dp || 0;
   const dpPct = totalAfterDisc>0 ? Math.round(dpAmt/totalAfterDisc*100) : 0;
   const html = buildInvoiceHTML(b, {isProforma:true, dpAmt, dpPct});
+  const fname = `Proforma_${safeFilename(b.id)}_${safeFilename(b.owner)}`;
   const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Proforma Invoice - ${b.id}</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${fname}</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
   <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff}@media print{@page{margin:16mm}}</style>
   </head><body>${html}<script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`);
@@ -1876,8 +1881,9 @@ function printPL(){
   const b = BOOKINGS.find(x=>x.id===plId);
   if(!b) return;
   const html = buildInvoiceHTML(b, {isProforma:false, dpAmt: b.dp||0});
+  const fname = `Invoice_${safeFilename(b.id)}_${safeFilename(b.owner)}`;
   const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice - ${b.id}</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${fname}</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
   <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff}@media print{@page{margin:16mm}}</style>
   </head><body>${html}<script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`);
@@ -1917,7 +1923,7 @@ function finalizeCO(){
       b.finalTotal=tot;
       syncSlots();
       closeOv('pl-ov');
-      rMini();rFull();rRecent();rAll('all');
+      rMini();rFull();rRecent();rAll(currentBkFilter);
       toast('✓ Checkout '+b.owner+' selesai. Total: '+rp(tot));
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
   }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
@@ -2436,14 +2442,16 @@ function nav(page,btn){
   if(dt) dt.innerHTML=`${PAGE_TITLES[page]||page} <span>${PAGE_SUBS[page]||''}</span>`;
   if(page==='slots') rFull();
   if(page==='calendar') rCal();
-  if(page==='bookings') rAll('all');
+  if(page==='bookings') rAll(currentBkFilter);
   if(page==='customers') rCust();
   if(page==='reports'){rTX();rRevChart();rAddonBreak();}
   if(page==='expenses') rExpenses();
   if(page==='settings') rAddonList();
 }
 function navTo(page){ nav(page, document.getElementById('bn-'+page)); }
+let currentBkFilter='all';
 function filterB(f,btn){
+  currentBkFilter=f;
   rAll(f);
   document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');

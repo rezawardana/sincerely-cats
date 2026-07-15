@@ -1208,7 +1208,39 @@ function calcAllCats(){
   document.getElementById('pbox').style.display='block';
 }
 
+// ============================================================
+// ANTI DOUBLE-SUBMIT — cegah data kekirim 2x kalau tombol
+// ditap berkali-kali sebelum request pertama selesai
+// ============================================================
+let SUBMIT_LOCK = false;
+function withSubmitLock(fn){
+  if(SUBMIT_LOCK){ return; }
+  SUBMIT_LOCK = true;
+  Promise.resolve(fn()).finally(()=>{ SUBMIT_LOCK = false; });
+}
+// Disable tombol Simpan utama di modal tertentu selama proses berlangsung,
+// supaya tap berkali-kali tidak mengirim data berkali-kali
+function setSaveBtnBusy(modalId, busy){
+  const modal=document.getElementById(modalId);
+  if(!modal) return;
+  const btn=modal.querySelector('.mf .btn-p');
+  if(!btn) return;
+  if(busy){
+    btn.dataset.origText=btn.textContent;
+    btn.textContent='Menyimpan...';
+    btn.disabled=true;
+    btn.style.opacity='0.6';
+    btn.style.pointerEvents='none';
+  } else {
+    if(btn.dataset.origText) btn.textContent=btn.dataset.origText;
+    btn.disabled=false;
+    btn.style.opacity='';
+    btn.style.pointerEvents='';
+  }
+}
+
 function saveBk(){
+  if(SUBMIT_LOCK) return;
   const owner=document.getElementById('b-owner').value;
   const ci=document.getElementById('b-ci').value;
   const co=document.getElementById('b-co').value;
@@ -1247,10 +1279,13 @@ function saveBk(){
   const lh=parseInt(document.getElementById('b-coh').value)||0;
   const notes=document.getElementById('b-notes').value;
 
+  SUBMIT_LOCK=true;
+  setSaveBtnBusy('bk-ov', true);
+
   if(editingBkId){
     // === EDIT MODE — update booking yang sudah ada ===
     const b=BOOKINGS.find(x=>x.id===editingBkId);
-    if(!b){toast('⚠ Booking tidak ditemukan');return;}
+    if(!b){toast('⚠ Booking tidak ditemukan');SUBMIT_LOCK=false;setSaveBtnBusy('bk-ov',false);return;}
     showLoading('Menyimpan perubahan...');
     apiPost({
       action:'updateBooking',
@@ -1267,7 +1302,8 @@ function saveBk(){
         toast('✓ Booking '+editingBkId+' berhasil diupdate');
         editingBkId=null;
       } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-    }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+    }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); })
+    .finally(()=>{ SUBMIT_LOCK=false; setSaveBtnBusy('bk-ov', false); });
   } else {
     // === CREATE MODE — booking baru ===
     const newBk={
@@ -1290,7 +1326,8 @@ function saveBk(){
         toast('✓ Booking '+owner+' ('+cats.length+' kucing) tersimpan');
         setTimeout(()=>openPI(res.booking_id),400);
       } else { toast('⚠ Gagal simpan: '+(res.error||'unknown')); }
-    }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+    }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); })
+    .finally(()=>{ SUBMIT_LOCK=false; setSaveBtnBusy('bk-ov', false); });
   }
 }
 
@@ -1298,9 +1335,11 @@ function saveBk(){
    CHECK-IN
    ============================================================ */
 function cancelBooking(bkId){
+  if(SUBMIT_LOCK) return;
   const b=BOOKINGS.find(x=>x.id===bkId);
   if(!b) return;
   if(!confirm('Yakin ingin membatalkan booking '+b.owner+' ('+b.cats.map(c=>c.name).join(', ')+')?')) return;
+  SUBMIT_LOCK=true;
   showLoading('Membatalkan booking...');
   apiPost({action:'cancelBooking', booking_id:bkId}).then(res=>{
     hideLoading();
@@ -1311,12 +1350,14 @@ function cancelBooking(bkId){
       rMini();rFull();rRecent();rAll(currentBkFilter);
       toast('❌ Booking '+b.owner+' dibatalkan');
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal')); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal')); }).finally(()=>{ SUBMIT_LOCK=false; });
 }
 
 function doCheckin(bkId){
+  if(SUBMIT_LOCK) return;
   const b=BOOKINGS.find(x=>x.id===bkId);
   if(!b) return;
+  SUBMIT_LOCK=true;
   showLoading('Memproses check-in...');
   apiPost({action:'checkin', booking_id: bkId}).then(res=>{
     hideLoading();
@@ -1327,7 +1368,7 @@ function doCheckin(bkId){
       rMini();rFull();rRecent();rAll(currentBkFilter);
       toast('✓ Check-in '+b.owner+' berhasil!');
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); }).finally(()=>{ SUBMIT_LOCK=false; });
 }
 
 /* ============================================================
@@ -1781,10 +1822,12 @@ function openPI(bkId){
 }
 
 function confirmDP(){
+  if(SUBMIT_LOCK) return;
   const b=BOOKINGS.find(x=>x.id===piId);
   if(!b) return;
   const dpAmt=b._dpAmt||0;
   const discAmt=b.disc||0;
+  SUBMIT_LOCK=true;
   showLoading('Menyimpan data invoice...');
   apiPost({action:'confirmDP', booking_id: piId, dp_amount: dpAmt, disc: discAmt}).then(res=>{
     hideLoading();
@@ -1797,7 +1840,7 @@ function confirmDP(){
         : '✓ DP '+rp(dpAmt)+' tercatat untuk '+b.owner;
       toast(msg);
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); }).finally(()=>{ SUBMIT_LOCK=false; });
 }
 
 function printPI(){
@@ -1937,12 +1980,14 @@ function printPL(){
   w.document.close();
 }
 function finalizeCO(){
+  if(SUBMIT_LOCK) return;
   const b=BOOKINGS.find(x=>x.id===plId);
   if(!b) return;
   const sub=calcBkTotal(b), disc=b.disc||0, dp=b.dp||0;
   const tot=Math.max(0,sub-disc);
   const aoAmt=b.cats.reduce((s,cat)=>s+calcCatAddonTot(cat),0);
   const baseAmt=sub-aoAmt;
+  SUBMIT_LOCK=true;
   showLoading('Memproses checkout...');
   apiPost({
     action: 'checkout',
@@ -1973,7 +2018,7 @@ function finalizeCO(){
       rMini();rFull();rRecent();rAll(currentBkFilter);
       toast('✓ Checkout '+b.owner+' selesai. Total: '+rp(tot));
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); }).finally(()=>{ SUBMIT_LOCK=false; });
 }
 
 /* ============================================================
@@ -2032,6 +2077,7 @@ function addCatRow(name='',breed=''){
   document.getElementById('cat-rows').appendChild(div);
 }
 function saveCust(){
+  if(SUBMIT_LOCK) return;
   const name=document.getElementById('c-name').value.trim();
   if(!name){toast('⚠ Nama wajib diisi');return;}
   const cats=[];
@@ -2044,6 +2090,8 @@ function saveCust(){
   const data={name,wa:document.getElementById('c-wa').value,alamat:document.getElementById('c-alamat').value,notes:document.getElementById('c-notes').value,cats,v:0,sp:0,ls:'—'};
   const apiAction = editCustIdx!==null ? 'updateCustomer' : 'saveCustomer';
   if(editCustIdx!==null){data.v=CUSTS[editCustIdx].v;data.sp=CUSTS[editCustIdx].sp;data.ls=CUSTS[editCustIdx].ls;}
+  SUBMIT_LOCK=true;
+  setSaveBtnBusy('cu-ov', true);
   showLoading('Menyimpan data pelanggan...');
   apiPost({
     action: apiAction,
@@ -2062,7 +2110,8 @@ function saveCust(){
       else { CUSTS.push(data); toast('✓ '+name+' ditambahkan'); }
       closeOv('cu-ov'); rCust();
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
-  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); });
+  }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); })
+  .finally(()=>{ SUBMIT_LOCK=false; setSaveBtnBusy('cu-ov', false); });
 }
 
 /* ============================================================
@@ -2279,12 +2328,14 @@ function editExpense(id){
   document.getElementById('ex-ov').classList.add('open');
 }
 function saveExpense(){
+  if(SUBMIT_LOCK) return;
   const date=document.getElementById('ex-date').value;
   const categoryId=document.getElementById('ex-cat').value;
   const desc=document.getElementById('ex-desc').value.trim();
   const amount=parseInt(document.getElementById('ex-amount').value)||0;
   if(!date||!categoryId||!amount){toast('⚠ Lengkapi tanggal, kategori, dan nominal');return;}
 
+  SUBMIT_LOCK=true;
   if(editingExpId){
     showLoading('Menyimpan perubahan...');
     apiPost({action:'updateExpense',id:editingExpId,date,category_id:categoryId,desc,amount}).then(res=>{
@@ -2295,7 +2346,7 @@ function saveExpense(){
         closeOv('ex-ov');rExpenses();editingExpId=null;
         toast('✓ Pengeluaran diupdate');
       } else { toast('⚠ Gagal: '+(res.error||'')); }
-    }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));});
+    }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{ SUBMIT_LOCK=false; });
   } else {
     showLoading('Menyimpan pengeluaran...');
     apiPost({action:'saveExpense',date,category_id:categoryId,desc,amount}).then(res=>{
@@ -2305,7 +2356,7 @@ function saveExpense(){
         closeOv('ex-ov');rExpenses();
         toast('✓ Pengeluaran tersimpan');
       } else { toast('⚠ Gagal: '+(res.error||'')); }
-    }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));});
+    }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{ SUBMIT_LOCK=false; });
   }
 }
 function deleteExpense(id){

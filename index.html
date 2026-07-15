@@ -73,6 +73,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .btn-d{background:var(--red-l);color:var(--red);border:1px solid #f5c6c4}
 .btn svg{width:14px;height:14px;stroke-width:2}
 .btn-full{width:100%;justify-content:center;padding:12px}
+.mode-btn-active{background:var(--accent-l)!important;border-color:#b8dece!important;color:var(--accent)!important;font-weight:700}
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fgr{display:flex;flex-direction:column;gap:5px}
 .fgr.full{grid-column:1/-1}
@@ -212,6 +213,11 @@ textarea{resize:vertical;min-height:60px}
 </style>
 </head>
 <body>
+
+<!-- TRAINING MODE BANNER -->
+<div id="mode-banner" style="display:none;background:var(--amber);color:#fff;text-align:center;padding:9px 12px;font-size:12px;font-weight:700;position:sticky;top:0;z-index:95;letter-spacing:.3px">
+  🧪 MODE TRAINING — Data yang tampil adalah data latihan, bukan data asli bisnis
+</div>
 
 <!-- MOBILE TOPBAR -->
 <div class="topbar">
@@ -400,6 +406,16 @@ textarea{resize:vertical;min-height:60px}
 
   <!-- SETTINGS -->
   <div class="page" id="page-settings">
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch"><span class="ct">Mode Aplikasi</span></div>
+      <div class="cb">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Gunakan mode Training untuk latihan input data tanpa mempengaruhi data bisnis asli.</div>
+        <div style="display:flex;gap:8px">
+          <button id="mode-btn-production" class="btn btn-g mode-btn" style="flex:1;justify-content:center;padding:12px" onclick="switchMode('production')">🔴 Production</button>
+          <button id="mode-btn-training" class="btn btn-g mode-btn" style="flex:1;justify-content:center;padding:12px" onclick="switchMode('training')">🧪 Training</button>
+        </div>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:14px">
       <div class="ch"><span class="ct">Tarif Kamar</span></div>
       <div class="cb">
@@ -611,7 +627,10 @@ textarea{resize:vertical;min-height:60px}
 <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(247,246,242,.95);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div style="font-size:48px;animation:spin 2s linear infinite">🐾</div>
   <div id="loading-msg" style="font-size:14px;font-weight:500;color:var(--text2)">Memuat data...</div>
-  <button id="loading-retry" onclick="loadAllData()" class="btn btn-p" style="display:none">Coba Lagi</button>
+  <div style="display:flex;gap:8px">
+    <button id="loading-retry" onclick="loadAllData()" class="btn btn-p" style="display:none">Coba Lagi</button>
+    <button id="loading-back-prod" onclick="switchMode('production')" class="btn btn-g" style="display:none">🔴 Kembali ke Production</button>
+  </div>
 </div>
 <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>
 
@@ -1352,7 +1371,32 @@ function calcDP(){
 /* ============================================================
    API CONFIG — Google Apps Script
    ============================================================ */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzYujbrGQ5L7b4NXMVWSfPG6HC1cbkxMa0jwi9whav8xws6WnVAhsObQVrHnuc4Gd_pSg/exec';
+const API_URL_PRODUCTION = 'https://script.google.com/macros/s/AKfycbzYujbrGQ5L7b4NXMVWSfPG6HC1cbkxMa0jwi9whav8xws6WnVAhsObQVrHnuc4Gd_pSg/exec';
+const API_URL_TRAINING = 'https://script.google.com/macros/s/AKfycbxZxbvNdIuOmAZnek-vm721TEBLJwtkHByzMyzj6LCOQ9SO_kZMo1AwOZm-dJfCu0lbKw/exec';
+
+// Mode tersimpan di localStorage supaya tetap konsisten walau reload
+let APP_MODE = localStorage.getItem('sc_mode') || 'production';
+let API_URL = APP_MODE==='training' ? API_URL_TRAINING : API_URL_PRODUCTION;
+
+function switchMode(mode){
+  if(mode===APP_MODE) return;
+  if(mode==='production' && !confirm('Kembali ke mode Production? Data training tidak akan terbawa.')) return;
+  APP_MODE = mode;
+  localStorage.setItem('sc_mode', mode);
+  API_URL = mode==='training' ? API_URL_TRAINING : API_URL_PRODUCTION;
+  updateModeBadge();
+  loadAllData();
+  toast(mode==='training' ? '🧪 Beralih ke mode Training' : '🔴 Kembali ke mode Production');
+}
+
+function updateModeBadge(){
+  const banner=document.getElementById('mode-banner');
+  if(banner) banner.style.display = APP_MODE==='training' ? 'block' : 'none';
+  const btnProd=document.getElementById('mode-btn-production');
+  const btnTrain=document.getElementById('mode-btn-training');
+  if(btnProd) btnProd.classList.toggle('mode-btn-active', APP_MODE==='production');
+  if(btnTrain) btnTrain.classList.toggle('mode-btn-active', APP_MODE==='training');
+}
 
 // Loading state
 let APP_READY = false;
@@ -1475,8 +1519,11 @@ async function loadAllData(){
   } catch(err){
     hideLoading();
     document.getElementById('loading-overlay').style.display='flex';
-    document.getElementById('loading-msg').textContent='⚠ Gagal terhubung ke database. Cek koneksi internet.';
+    document.getElementById('loading-msg').textContent = APP_MODE==='training'
+      ? '⚠ Gagal terhubung ke database Training. Cek apakah Apps Script training sudah di-deploy dengan benar, atau kembali ke Production.'
+      : '⚠ Gagal terhubung ke database. Cek koneksi internet.';
     document.getElementById('loading-retry').style.display='inline-flex';
+    document.getElementById('loading-back-prod').style.display = APP_MODE==='training' ? 'inline-flex' : 'none';
     console.error('Load error:', err);
   }
 }
@@ -2515,6 +2562,8 @@ function updateClock(){
 window.addEventListener('DOMContentLoaded',()=>{
   updateClock(); setInterval(updateClock,30000);
   document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+  // Sinkronkan badge mode sesuai state tersimpan
+  updateModeBadge();
   // Load semua data dari Google Sheets
   loadAllData();
 });

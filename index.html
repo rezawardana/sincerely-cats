@@ -1141,7 +1141,7 @@ function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
     </div>
     <div class="fg">
       <div class="fgr"><label>Nama Kucing *</label><input type="text" id="cbname-${id}" placeholder="cth. Mochi" value="${prefillName}" oninput="calcAllCats()"></div>
-      <div class="fgr"><label>Ras</label><input type="text" id="cbbreed-${id}" placeholder="Persia, DSH..." value="${prefillBreed}"></div>
+      <div class="fgr"><label>Ras</label><input type="text" id="cbbreed-${id}" placeholder="Persia, BSH..." value="${prefillBreed}"></div>
       <div class="fgr full"><label>Pilih Slot *</label><select id="cbslot-${id}" onchange="refreshSlotDropdowns();calcAllCats()"><option value="">-- Pilih Slot --</option>${slotOpts}</select></div>
       <div class="fgr full">
         <label>Add-ons (opsional) — isi estimasi jumlah pemberian</label>
@@ -1261,7 +1261,7 @@ function saveBk(){
   rows.forEach(r=>{
     const id=r.id.replace('cbrow-','');
     const name=document.getElementById('cbname-'+id)?.value?.trim();
-    const breed=document.getElementById('cbbreed-'+id)?.value?.trim()||'DSH';
+    const breed=document.getElementById('cbbreed-'+id)?.value?.trim()||'BSH';
     const slotId=parseInt(document.getElementById('cbslot-'+id)?.value);
     if(!name||!slotId){valid=false;return;}
     const sa=ADDONS.filter(a=>document.getElementById('cbchk-'+id+'-'+a.id)?.checked).map(a=>a.id);

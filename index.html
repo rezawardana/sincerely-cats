@@ -74,6 +74,36 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .btn svg{width:14px;height:14px;stroke-width:2}
 .btn-full{width:100%;justify-content:center;padding:12px}
 .mode-btn-active{background:var(--accent-l)!important;border-color:#b8dece!important;color:var(--accent)!important;font-weight:700}
+
+/* ===== POS / KASIR ===== */
+.pos-layout{display:flex;flex-direction:column;gap:12px}
+.pos-products{max-height:50vh;overflow-y:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:2px}
+.pos-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .1s,border-color .15s;position:relative}
+.pos-card:active{transform:scale(.96)}
+.pos-card.in-cart{border-color:var(--accent);background:var(--accent-l)}
+.pos-card.out-of-stock{opacity:.45;cursor:not-allowed}
+.pos-card-img{width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:var(--surface2);display:block}
+.pos-card-icon{width:100%;aspect-ratio:1;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px}
+.pos-card-name{font-size:11.5px;font-weight:600;margin-top:6px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pos-card-price{font-size:11px;color:var(--accent);font-weight:700;margin-top:2px}
+.pos-card-stock{font-size:9.5px;color:var(--text3);margin-top:1px}
+.pos-card-qty-badge{position:absolute;top:6px;right:6px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.pos-cart{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px;box-shadow:var(--sh)}
+.pos-cart-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.pos-cart-item:last-child{border-bottom:none}
+.pos-cart-item-name{font-size:12.5px;font-weight:600;flex:1;min-width:0;line-height:1.3}
+.pos-cart-item-sub{font-size:10.5px;color:var(--text3)}
+.pos-cart-qty{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.pos-cart-qty button{width:24px;height:24px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2)}
+.pos-cart-qty span{width:20px;text-align:center;font-size:12.5px;font-weight:600}
+.pos-cart-item-total{font-size:12px;font-weight:700;color:var(--accent);min-width:64px;text-align:right;flex-shrink:0}
+.pos-channel-btn.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+
+@media(min-width:768px){
+  .pos-layout{flex-direction:row;align-items:flex-start}
+  .pos-products{flex:2;max-height:calc(100vh - 260px);grid-template-columns:repeat(4,1fr)}
+  .pos-cart{flex:1;position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto}
+}
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fgr{display:flex;flex-direction:column;gap:5px}
 .fgr.full{grid-column:1/-1}
@@ -417,6 +447,7 @@ textarea{resize:vertical;min-height:60px}
     <div class="ftabs">
       <button class="ftab active" id="tk-tab-vendor" onclick="showTrinketSub('vendor',this)">Vendor</button>
       <button class="ftab" id="tk-tab-produk" onclick="showTrinketSub('produk',this)">Produk</button>
+      <button class="ftab" id="tk-tab-kasir" onclick="showTrinketSub('kasir',this)">🛒 Kasir</button>
     </div>
 
     <!-- VENDOR SUB-PAGE -->
@@ -441,6 +472,35 @@ textarea{resize:vertical;min-height:60px}
         </select>
       </div>
       <div class="card"><div id="produk-list"></div></div>
+    </div>
+
+    <!-- KASIR / POS SUB-PAGE -->
+    <div id="tk-sub-kasir" class="tk-sub" style="display:none">
+      <input type="text" id="pos-search" placeholder="🔍 Cari produk..." oninput="rPosProducts()" style="width:100%;margin-bottom:10px">
+      <div class="ftabs" id="pos-category-tabs"></div>
+
+      <div class="pos-layout">
+        <div class="pos-products" id="pos-products"></div>
+
+        <div class="pos-cart">
+          <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🛒 Keranjang</div>
+          <div id="pos-cart-items"></div>
+          <div id="pos-cart-empty" class="es" style="padding:20px 10px"><p>Keranjang kosong.<br>Tap produk untuk menambahkan.</p></div>
+
+          <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Channel Penjualan</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <button class="btn btn-g pos-channel-btn active" id="pos-ch-offline" style="flex:1;justify-content:center" onclick="setPosChannel('Offline')">🏠 Offline</button>
+              <button class="btn btn-g pos-channel-btn" id="pos-ch-online" style="flex:1;justify-content:center" onclick="setPosChannel('Online')">🌐 Online</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:600">Total</span>
+              <span style="font-size:20px;font-weight:700;color:var(--accent)" id="pos-total">Rp 0</span>
+            </div>
+            <button class="btn btn-p btn-full" id="pos-checkout-btn" onclick="checkoutPOS()" disabled>✓ Selesaikan Transaksi</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2571,6 +2631,7 @@ function showTrinketSub(sub, btn){
   if(btn) btn.classList.add('active');
   if(sub==='vendor') rVendors();
   if(sub==='produk') rProduk();
+  if(sub==='kasir'){ rPosCategories(); rPosProducts(); rCart(); }
 }
 
 /* ===== VENDOR ===== */
@@ -2844,6 +2905,154 @@ function saveStockAdjust(){
       p.stock=newStock;
       closeOv('sk-ov'); rProduk();
       toast('✓ Stok '+p.name+' diupdate ke '+newStock);
+    } else { toast('⚠ Gagal: '+(res.error||'')); }
+  }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
+}
+
+/* ============================================================
+   KASIR / POS
+   ============================================================ */
+let POS_CART = []; // [{productId, name, price, qty, vendorId, vendorSplitPct, stock}]
+let POS_CHANNEL = 'Offline';
+let POS_CATEGORY = ''; // '' = semua
+
+function rPosCategories(){
+  const wrap=document.getElementById('pos-category-tabs');
+  if(!wrap) return;
+  const cats=[...new Set(TRINKET_PRODUCTS.map(p=>p.category||'Lainnya'))].sort();
+  wrap.innerHTML=`<button class="ftab${POS_CATEGORY===''?' active':''}" onclick="setPosCategory('')">Semua</button>`+
+    cats.map(c=>`<button class="ftab${POS_CATEGORY===c?' active':''}" onclick="setPosCategory('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
+}
+function setPosCategory(cat){
+  POS_CATEGORY=cat;
+  rPosCategories();
+  rPosProducts();
+}
+function rPosProducts(){
+  const wrap=document.getElementById('pos-products');
+  if(!wrap) return;
+  const searchTerm=(document.getElementById('pos-search')?.value||'').toLowerCase().trim();
+  const filtered=TRINKET_PRODUCTS.filter(p=>{
+    const matchCat = !POS_CATEGORY || (p.category||'Lainnya')===POS_CATEGORY;
+    const matchSearch = !searchTerm || p.name.toLowerCase().includes(searchTerm);
+    return matchCat && matchSearch;
+  });
+  if(!filtered.length){
+    wrap.innerHTML='<div class="es" style="grid-column:1/-1"><p>Tidak ada produk ditemukan</p></div>';
+    return;
+  }
+  wrap.innerHTML=filtered.map(p=>{
+    const inCart=POS_CART.find(c=>c.productId===p.id);
+    const qtyInCart=inCart?inCart.qty:0;
+    const outOfStock=p.stock<=0;
+    const imgHtml=p.imageLink
+      ?`<img src="${p.imageLink}" class="pos-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      :'';
+    return `<div class="pos-card${qtyInCart>0?' in-cart':''}${outOfStock?' out-of-stock':''}" onclick="${outOfStock?'':`addToCart('${p.id}')`}">
+      ${qtyInCart>0?`<div class="pos-card-qty-badge">${qtyInCart}</div>`:''}
+      ${imgHtml}
+      <div class="pos-card-icon" style="display:${p.imageLink?'none':'flex'}">🏷️</div>
+      <div class="pos-card-name">${p.name}</div>
+      <div class="pos-card-price">${rp(p.sellPrice)}</div>
+      <div class="pos-card-stock">${outOfStock?'Stok habis':'Stok: '+p.stock}</div>
+    </div>`;
+  }).join('');
+}
+function addToCart(productId){
+  const p=TRINKET_PRODUCTS.find(x=>x.id===productId);
+  if(!p||p.stock<=0) return;
+  const existing=POS_CART.find(c=>c.productId===productId);
+  const currentQty=existing?existing.qty:0;
+  if(currentQty>=p.stock){ toast('⚠ Stok '+p.name+' tidak cukup'); return; }
+  if(existing){ existing.qty++; }
+  else { POS_CART.push({productId:p.id,name:p.name,price:p.sellPrice,qty:1,vendorId:p.vendorId,vendorSplitPct:p.vendorSplitPct,stock:p.stock}); }
+  rPosProducts(); rCart();
+}
+function adjustCartQty(productId, delta){
+  const item=POS_CART.find(c=>c.productId===productId);
+  if(!item) return;
+  const p=TRINKET_PRODUCTS.find(x=>x.id===productId);
+  const newQty=item.qty+delta;
+  if(newQty<=0){ POS_CART=POS_CART.filter(c=>c.productId!==productId); }
+  else if(p && newQty>p.stock){ toast('⚠ Stok '+item.name+' tidak cukup'); return; }
+  else { item.qty=newQty; }
+  rPosProducts(); rCart();
+}
+function setPosChannel(channel){
+  POS_CHANNEL=channel;
+  document.getElementById('pos-ch-offline').classList.toggle('active', channel==='Offline');
+  document.getElementById('pos-ch-online').classList.toggle('active', channel==='Online');
+}
+function rCart(){
+  const list=document.getElementById('pos-cart-items');
+  const empty=document.getElementById('pos-cart-empty');
+  const totalEl=document.getElementById('pos-total');
+  const checkoutBtn=document.getElementById('pos-checkout-btn');
+  if(!list) return;
+
+  if(!POS_CART.length){
+    list.innerHTML='';
+    empty.style.display='block';
+    totalEl.textContent=rp(0);
+    checkoutBtn.disabled=true;
+    return;
+  }
+  empty.style.display='none';
+  const total=POS_CART.reduce((s,c)=>s+c.price*c.qty,0);
+  list.innerHTML=POS_CART.map(c=>`
+    <div class="pos-cart-item">
+      <div style="flex:1;min-width:0">
+        <div class="pos-cart-item-name">${c.name}</div>
+        <div class="pos-cart-item-sub">${rp(c.price)}/pcs</div>
+      </div>
+      <div class="pos-cart-qty">
+        <button onclick="adjustCartQty('${c.productId}',-1)">−</button>
+        <span>${c.qty}</span>
+        <button onclick="adjustCartQty('${c.productId}',1)">+</button>
+      </div>
+      <div class="pos-cart-item-total">${rp(c.price*c.qty)}</div>
+    </div>`).join('');
+  totalEl.textContent=rp(total);
+  checkoutBtn.disabled=false;
+}
+function checkoutPOS(){
+  if(SUBMIT_LOCK) return;
+  if(!POS_CART.length){ toast('⚠ Keranjang masih kosong'); return; }
+
+  const items=POS_CART.map(c=>{
+    const vendorPayout=Math.round(c.price*c.qty*(c.vendorSplitPct/100));
+    const businessRevenue=(c.price*c.qty)-vendorPayout;
+    return {
+      product_id:c.productId, product_name:c.name, vendor_id:c.vendorId,
+      qty:c.qty, price_at_sale:c.price, vendor_split_pct_at_sale:c.vendorSplitPct,
+      vendor_payout_amount:vendorPayout, business_revenue_amount:businessRevenue,
+    };
+  });
+  const totalAmount=items.reduce((s,i)=>s+i.price_at_sale*i.qty,0);
+  const totalVendorPayout=items.reduce((s,i)=>s+i.vendor_payout_amount,0);
+  const totalBusinessRevenue=items.reduce((s,i)=>s+i.business_revenue_amount,0);
+
+  SUBMIT_LOCK=true;
+  showLoading('Memproses transaksi...');
+  apiPost({
+    action:'saveTrinketSale', channel:POS_CHANNEL, notes:'',
+    total_amount:totalAmount, total_vendor_payout:totalVendorPayout, total_business_revenue:totalBusinessRevenue,
+    items,
+  }).then(res=>{
+    hideLoading();
+    if(res.success){
+      // Update stok lokal & saldo vendor lokal
+      POS_CART.forEach(c=>{
+        const p=TRINKET_PRODUCTS.find(x=>x.id===c.productId);
+        if(p) p.stock=Math.max(0,p.stock-c.qty);
+      });
+      items.forEach(it=>{
+        const v=TRINKET_VENDORS.find(x=>x.id===it.vendor_id);
+        if(v) v.totalOwed=(v.totalOwed||0)+it.vendor_payout_amount;
+      });
+      POS_CART=[];
+      rPosProducts(); rCart();
+      toast('✓ Transaksi berhasil — Total '+rp(totalAmount));
     } else { toast('⚠ Gagal: '+(res.error||'')); }
   }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
 }

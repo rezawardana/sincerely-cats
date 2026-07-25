@@ -469,17 +469,13 @@ textarea{resize:vertical;min-height:60px}
         <div class="ph-sub" id="produk-sub">—</div>
         <button class="btn btn-p" onclick="openProduk()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Tambah Produk</button>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <input type="text" id="produk-search" placeholder="🔍 Cari nama produk atau vendor..." oninput="rProduk()" style="flex:1;min-width:180px">
-        <select id="produk-filter-vendor" onchange="rProduk()" style="min-width:150px">
-          <option value="">Semua Vendor</option>
-        </select>
-      </div>
-      <div class="card" style="margin-bottom:14px"><div id="produk-list"></div></div>
 
-      <div class="card">
-        <div class="ch"><span class="ct">Kategori Produk</span></div>
-        <div class="cb">
+      <div class="card" style="margin-bottom:14px">
+        <div class="ch" style="cursor:pointer" onclick="toggleKategoriPanel()">
+          <span class="ct">🏷️ Kelola Kategori</span>
+          <span id="tk-cat-toggle-icon" style="font-size:12px;color:var(--text3)">▾ Buka</span>
+        </div>
+        <div class="cb" id="tk-cat-panel" style="display:none">
           <div class="alist" id="tk-cat-list"></div>
           <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
             <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Tambah Kategori Baru</div>
@@ -490,6 +486,14 @@ textarea{resize:vertical;min-height:60px}
           </div>
         </div>
       </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="produk-search" placeholder="🔍 Cari nama produk atau vendor..." oninput="rProduk()" style="flex:1;min-width:180px">
+        <select id="produk-filter-vendor" onchange="rProduk()" style="min-width:150px">
+          <option value="">Semua Vendor</option>
+        </select>
+      </div>
+      <div class="card"><div id="produk-list"></div></div>
     </div>
 
     <!-- KASIR / POS SUB-PAGE -->
@@ -2844,6 +2848,13 @@ function rProduk(){
 }
 let editProdukIdx=null;
 /* ===== KATEGORI PRODUK ===== */
+function toggleKategoriPanel(){
+  const panel=document.getElementById('tk-cat-panel');
+  const icon=document.getElementById('tk-cat-toggle-icon');
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  icon.textContent=isOpen?'▾ Buka':'▴ Tutup';
+}
 function rTrinketCategories(){
   const list=document.getElementById('tk-cat-list');
   if(!list) return;

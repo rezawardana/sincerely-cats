@@ -77,7 +77,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 
 /* ===== POS / KASIR ===== */
 .pos-layout{display:flex;flex-direction:column;gap:12px}
-.pos-products{max-height:50vh;overflow-y:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:2px}
+.pos-products{max-height:38vh;overflow-y:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:2px}
 .pos-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .1s,border-color .15s;position:relative}
 .pos-card:active{transform:scale(.96)}
 .pos-card.in-cart{border-color:var(--accent);background:var(--accent-l)}
@@ -99,10 +99,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .pos-cart-item-total{font-size:12px;font-weight:700;color:var(--accent);min-width:64px;text-align:right;flex-shrink:0}
 .pos-channel-btn.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
 
+#pos-float-cart{position:fixed;bottom:calc(var(--nav-h) + 12px);left:16px;right:16px;background:var(--accent);color:#fff;border-radius:14px;padding:13px 18px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shm);z-index:80;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#pos-float-cart span{font-weight:700;font-size:14px}
+
 @media(min-width:768px){
   .pos-layout{flex-direction:row;align-items:flex-start}
   .pos-products{flex:2;max-height:calc(100vh - 260px);grid-template-columns:repeat(4,1fr)}
   .pos-cart{flex:1;position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto}
+  #pos-float-cart{display:none!important} /* keranjang sudah selalu terlihat di desktop */
 }
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fgr{display:flex;flex-direction:column;gap:5px}
@@ -471,7 +475,21 @@ textarea{resize:vertical;min-height:60px}
           <option value="">Semua Vendor</option>
         </select>
       </div>
-      <div class="card"><div id="produk-list"></div></div>
+      <div class="card" style="margin-bottom:14px"><div id="produk-list"></div></div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Kategori Produk</span></div>
+        <div class="cb">
+          <div class="alist" id="tk-cat-list"></div>
+          <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Tambah Kategori Baru</div>
+            <div class="fg" style="grid-template-columns:1fr">
+              <div class="fgr"><input type="text" id="tk-cat-name" placeholder="cth. Keychain, Postcard, Sticker"></div>
+            </div>
+            <button class="btn btn-p btn-full" style="margin-top:10px" onclick="addTrinketCategory()">Tambah Kategori</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- KASIR / POS SUB-PAGE -->
@@ -482,7 +500,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="pos-layout">
         <div class="pos-products" id="pos-products"></div>
 
-        <div class="pos-cart">
+        <div class="pos-cart" id="pos-cart-panel">
           <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🛒 Keranjang</div>
           <div id="pos-cart-items"></div>
           <div id="pos-cart-empty" class="es" style="padding:20px 10px"><p>Keranjang kosong.<br>Tap produk untuk menambahkan.</p></div>
@@ -502,6 +520,12 @@ textarea{resize:vertical;min-height:60px}
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- FLOATING CART BAR (mobile) -->
+  <div id="pos-float-cart" style="display:none" onclick="scrollToPosCart()">
+    <span id="pos-float-count">🛒 0 item</span>
+    <span id="pos-float-total">Rp 0</span>
   </div>
 
   <!-- SETTINGS -->
@@ -764,7 +788,7 @@ textarea{resize:vertical;min-height:60px}
     <div class="mb">
       <div class="fg">
         <div class="fgr full"><label>Nama Produk *</label><input type="text" id="pd-name" placeholder="cth. Stiker Kucing Oren"></div>
-        <div class="fgr"><label>Kategori</label><input type="text" id="pd-category" placeholder="cth. Stiker, Mainan, Aksesoris"></div>
+        <div class="fgr"><label>Kategori</label><select id="pd-category"><option value="">-- Pilih Kategori --</option></select></div>
         <div class="fgr"><label>Vendor/Artist *</label><select id="pd-vendor"><option value="">-- Pilih Vendor --</option></select></div>
         <div class="fgr"><label>Harga Jual (Rp) *</label><input type="number" id="pd-price" placeholder="cth. 10000"></div>
         <div class="fgr"><label>Split Vendor (%) *</label><input type="number" id="pd-split" placeholder="cth. 70" min="0" max="100"></div>
@@ -1680,7 +1704,7 @@ async function loadAllData(){
   showLoading('Menghubungkan ke database...');
   try {
     // Load in parallel
-    const [bkRes, custRes, addonRes, txRes, settRes, expCatRes, expRes, tvRes, tpRes] = await Promise.all([
+    const [bkRes, custRes, addonRes, txRes, settRes, expCatRes, expRes, tvRes, tpRes, tcRes] = await Promise.all([
       apiGet('getBookings'),
       apiGet('getCustomers'),
       apiGet('getAddons'),
@@ -1690,6 +1714,7 @@ async function loadAllData(){
       apiGet('getExpenses'),
       apiGet('getTrinketVendors'),
       apiGet('getTrinketProducts'),
+      apiGet('getTrinketCategories'),
     ]);
 
     if(bkRes.success){
@@ -1742,6 +1767,11 @@ async function loadAllData(){
     if(tpRes.success){
       TRINKET_PRODUCTS.length = 0;
       tpRes.data.forEach(p => TRINKET_PRODUCTS.push(p));
+    }
+
+    if(tcRes.success){
+      TRINKET_CATEGORIES.length = 0;
+      tcRes.data.forEach(c => TRINKET_CATEGORIES.push(c));
     }
 
     if(settRes.success){
@@ -2623,6 +2653,7 @@ function rExpenses(){
    ============================================================ */
 let TRINKET_VENDORS = []; // diisi dari Google Sheets
 let TRINKET_PRODUCTS = []; // diisi dari Google Sheets
+let TRINKET_CATEGORIES = []; // diisi dari Google Sheets
 
 function showTrinketSub(sub, btn){
   document.querySelectorAll('.tk-sub').forEach(el=>el.style.display='none');
@@ -2630,7 +2661,7 @@ function showTrinketSub(sub, btn){
   document.querySelectorAll('#page-trinkets .ftab').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   if(sub==='vendor') rVendors();
-  if(sub==='produk') rProduk();
+  if(sub==='produk'){ rProduk(); rTrinketCategories(); }
   if(sub==='kasir'){ rPosCategories(); rPosProducts(); rCart(); }
 }
 
@@ -2812,6 +2843,74 @@ function rProduk(){
   }).join('');
 }
 let editProdukIdx=null;
+/* ===== KATEGORI PRODUK ===== */
+function rTrinketCategories(){
+  const list=document.getElementById('tk-cat-list');
+  if(!list) return;
+  if(!TRINKET_CATEGORIES.length){
+    list.innerHTML='<div class="es"><p>Belum ada kategori. Tambahkan di bawah.</p></div>';
+    return;
+  }
+  list.innerHTML=TRINKET_CATEGORIES.map(c=>`
+    <div class="aitem" id="tkcat-item-${c.id}">
+      <div class="ainame">${c.name}</div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="startEditTkCat('${c.id}')">Edit</button>
+        <button class="btn btn-d" style="padding:6px 10px;font-size:12px" onclick="delTrinketCategory('${c.id}')">Hapus</button>
+      </div>
+    </div>`).join('');
+}
+function startEditTkCat(id){
+  const c=TRINKET_CATEGORIES.find(x=>x.id===id);
+  document.getElementById('tkcat-item-'+id).innerHTML=`
+    <input type="text" value="${c.name}" id="tkcatname-${id}" style="flex:1;font-size:13px">
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn btn-p" style="padding:6px 10px;font-size:12px" onclick="saveEditTkCat('${id}')">Simpan</button>
+      <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="rTrinketCategories()">Batal</button>
+    </div>`;
+}
+function saveEditTkCat(id){
+  const name=document.getElementById('tkcatname-'+id).value.trim();
+  if(!name){toast('⚠ Nama wajib diisi');return;}
+  apiPost({action:'updateTrinketCategory',id,name}).then(res=>{
+    if(res.success){
+      const c=TRINKET_CATEGORIES.find(x=>x.id===id); c.name=name;
+      rTrinketCategories(); rProdukCategoryDropdown();
+      toast('✓ Kategori diupdate');
+    } else { toast('⚠ Gagal update'); }
+  });
+}
+function addTrinketCategory(){
+  const name=document.getElementById('tk-cat-name').value.trim();
+  if(!name){toast('⚠ Nama kategori wajib diisi');return;}
+  apiPost({action:'saveTrinketCategory',name}).then(res=>{
+    if(res.success){
+      TRINKET_CATEGORIES.push({id:res.category_id,name});
+      document.getElementById('tk-cat-name').value='';
+      rTrinketCategories(); rProdukCategoryDropdown();
+      toast('✓ Kategori '+name+' ditambahkan');
+    } else { toast('⚠ Gagal: '+(res.error||'')); }
+  });
+}
+function delTrinketCategory(id){
+  apiPost({action:'deleteTrinketCategory',category_id:id}).then(res=>{
+    if(res.success){TRINKET_CATEGORIES=TRINKET_CATEGORIES.filter(c=>c.id!==id);rTrinketCategories();rProdukCategoryDropdown();toast('Kategori dihapus');}
+    else { toast('⚠ Gagal hapus'); }
+  });
+}
+function rProdukCategoryDropdown(legacyValue){
+  const sel=document.getElementById('pd-category');
+  if(!sel) return;
+  const cur=legacyValue!==undefined?legacyValue:sel.value;
+  let opts='<option value="">-- Pilih Kategori --</option>'+TRINKET_CATEGORIES.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+  // Kalau produk lama pakai kategori bebas (belum resmi terdaftar), tetap tampilkan supaya tidak hilang
+  if(cur && !TRINKET_CATEGORIES.find(c=>c.name===cur)){
+    opts+=`<option value="${cur}">${cur} (lama)</option>`;
+  }
+  sel.innerHTML=opts;
+  if(cur) sel.value=cur;
+}
+
 function openProduk(){
   editProdukIdx=null;
   if(!TRINKET_VENDORS.length){
@@ -2820,7 +2919,7 @@ function openProduk(){
   }
   document.getElementById('pd-title').textContent='Tambah Produk';
   document.getElementById('pd-name').value='';
-  document.getElementById('pd-category').value='';
+  rProdukCategoryDropdown('');
   document.getElementById('pd-price').value='';
   document.getElementById('pd-split').value='';
   document.getElementById('pd-stock').value='';
@@ -2835,7 +2934,7 @@ function openEditProduk(idx){
   const p=TRINKET_PRODUCTS[idx];
   document.getElementById('pd-title').textContent='Edit Produk';
   document.getElementById('pd-name').value=p.name;
-  document.getElementById('pd-category').value=p.category||'';
+  rProdukCategoryDropdown(p.category||'');
   document.getElementById('pd-price').value=p.sellPrice;
   document.getElementById('pd-split').value=p.vendorSplitPct;
   document.getElementById('pd-stock').value=p.stock;
@@ -2988,13 +3087,17 @@ function rCart(){
   const empty=document.getElementById('pos-cart-empty');
   const totalEl=document.getElementById('pos-total');
   const checkoutBtn=document.getElementById('pos-checkout-btn');
+  const floatBar=document.getElementById('pos-float-cart');
   if(!list) return;
+
+  const totalItems=POS_CART.reduce((s,c)=>s+c.qty,0);
 
   if(!POS_CART.length){
     list.innerHTML='';
     empty.style.display='block';
     totalEl.textContent=rp(0);
     checkoutBtn.disabled=true;
+    if(floatBar) floatBar.style.display='none';
     return;
   }
   empty.style.display='none';
@@ -3014,6 +3117,16 @@ function rCart(){
     </div>`).join('');
   totalEl.textContent=rp(total);
   checkoutBtn.disabled=false;
+
+  if(floatBar){
+    floatBar.style.display='flex';
+    document.getElementById('pos-float-count').textContent='🛒 '+totalItems+' item';
+    document.getElementById('pos-float-total').textContent=rp(total);
+  }
+}
+function scrollToPosCart(){
+  const el=document.getElementById('pos-cart-panel');
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 function checkoutPOS(){
   if(SUBMIT_LOCK) return;

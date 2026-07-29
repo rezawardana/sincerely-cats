@@ -571,7 +571,14 @@ textarea{resize:vertical;min-height:60px}
           <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Tambah Item Baru</div>
           <div class="fg">
             <div class="fgr"><label>Nama Layanan</label><input type="text" id="an-name" placeholder="cth. Vitamin C"></div>
-            <div class="fgr"><label>Harga / Pemberian</label><input type="number" id="an-price" placeholder="15000"></div>
+            <div class="fgr"><label>Harga (Rp)</label><input type="number" id="an-price" placeholder="15000"></div>
+            <div class="fgr"><label>Tipe Harga</label>
+              <select id="an-price-type" onchange="toggleAnDuration()">
+                <option value="per_serving">Per Pemberian (manual saat checkout)</option>
+                <option value="per_duration">Per Durasi (otomatis dari lama menginap)</option>
+              </select>
+            </div>
+            <div class="fgr" id="an-duration-wrap" style="display:none"><label>Durasi (hari)</label><input type="number" id="an-duration" placeholder="cth. 7"></div>
           </div>
           <button class="btn btn-p btn-full" style="margin-top:12px" onclick="addAddon()">Tambah Item</button>
         </div>
@@ -939,6 +946,11 @@ function syncSlots(){
    UTILS
    ============================================================ */
 const rp = n => 'Rp '+Math.round(n).toLocaleString('id-ID');
+// Hitung qty untuk add-on tipe "per_duration" — dibulatkan ke atas
+function calcDurationQty(nights, durationDays){
+  const d=durationDays||7;
+  return Math.max(1, Math.ceil(nights/d));
+}
 // Bikin nama file PDF yang aman & rapi, contoh: "BK-001_Budi_Santoso"
 function safeFilename(str){
   return String(str||'').trim().replace(/[^a-zA-Z0-9 -]/g,'').replace(/\s+/g,'_');
@@ -1358,8 +1370,15 @@ function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
       <div class="fgr full"><label>Pilih Slot *</label><select id="cbslot-${id}" onchange="refreshSlotDropdowns();calcAllCats()"><option value="">-- Pilih Slot --</option>${slotOpts}</select></div>
       <div class="fgr full">
         <label>Add-ons (opsional) — isi estimasi jumlah pemberian</label>
-        <div class="asel" style="margin-top:4px">${ADDONS.map(a=>`<div class="aci" id="cbaci-${id}-${a.id}" onclick="cbRowClick(event,'${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}"><div class="cb-check"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="acin">${a.name}</div><div class="acip">${rp(a.price)}/pmbr</div><input type="number" class="cb-addon-qty" id="cbqty-${id}-${a.id}" value="1" min="1" disabled onclick="event.stopPropagation()" oninput="calcAllCats()" style="width:48px;text-align:center;padding:5px 4px;font-size:12px;flex-shrink:0"></div>`).join('')}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px">Estimasi bisa disesuaikan lagi saat checkout sesuai pemakaian aktual</div>
+        <div class="asel" style="margin-top:4px">${ADDONS.map(a=>{
+          const isDuration=a.priceType==='per_duration';
+          const qtyEl=isDuration
+            ?`<span class="cb-addon-qty-auto" id="cbqtyauto-${id}-${a.id}" style="font-size:11px;color:var(--accent);font-weight:600;flex-shrink:0;white-space:nowrap">otomatis</span>`
+            :`<input type="number" class="cb-addon-qty" id="cbqty-${id}-${a.id}" value="1" min="1" disabled onclick="event.stopPropagation()" oninput="calcAllCats()" style="width:48px;text-align:center;padding:5px 4px;font-size:12px;flex-shrink:0">`;
+          const priceLabel=isDuration?rp(a.price)+'/'+(a.durationDays||7)+'hr':rp(a.price)+'/pmbr';
+          return `<div class="aci" id="cbaci-${id}-${a.id}" onclick="cbRowClick(event,'${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}"><div class="cb-check"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="acin">${a.name}</div><div class="acip">${priceLabel}</div>${qtyEl}</div>`;
+        }).join('')}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">Estimasi bisa disesuaikan lagi saat checkout sesuai pemakaian aktual. Add-on "otomatis" dihitung dari lama menginap.</div>
       </div>
     </div>`;
   document.getElementById('cat-booking-rows').appendChild(div);
@@ -1413,7 +1432,14 @@ function calcAllCats(){
     ADDONS.forEach(a=>{
       const chk=document.getElementById('cbchk-'+id+'-'+a.id);
       if(chk?.checked){
-        const qty=parseInt(document.getElementById('cbqty-'+id+'-'+a.id)?.value)||1;
+        let qty;
+        if(a.priceType==='per_duration'){
+          qty=calcDurationQty(n, a.durationDays);
+          const autoEl=document.getElementById('cbqtyauto-'+id+'-'+a.id);
+          if(autoEl) autoEl.textContent=qty+'× ('+n+'/'+  (a.durationDays||7)+'hr)';
+        } else {
+          qty=parseInt(document.getElementById('cbqty-'+id+'-'+a.id)?.value)||1;
+        }
         const amt=a.price*qty;
         addonEst+=amt;
         if(!addonLines[a.name]) addonLines[a.name]={qty:0,amt:0};
@@ -1468,6 +1494,7 @@ function saveBk(){
   const ci=document.getElementById('b-ci').value;
   const co=document.getElementById('b-co').value;
   if(!owner||!ci||!co){toast('⚠ Lengkapi pelanggan & tanggal');return;}
+  const bkNights=nights(ci,co);
   const rows=document.querySelectorAll('[id^="cbrow-"]');
   const cats=[];
   let valid=true;
@@ -1480,7 +1507,12 @@ function saveBk(){
     const sa=ADDONS.filter(a=>document.getElementById('cbchk-'+id+'-'+a.id)?.checked).map(a=>a.id);
     const aq={};
     sa.forEach(aid=>{
-      aq[aid]=parseInt(document.getElementById('cbqty-'+id+'-'+aid)?.value)||1;
+      const a=ADDONS.find(x=>x.id===aid);
+      if(a && a.priceType==='per_duration'){
+        aq[aid]=calcDurationQty(bkNights, a.durationDays);
+      } else {
+        aq[aid]=parseInt(document.getElementById('cbqty-'+id+'-'+aid)?.value)||1;
+      }
     });
     cats.push({name,breed,slotId,sa,aq,ma:[]});
   });
@@ -2125,8 +2157,15 @@ function openPL(bkId){
     addonRows+=`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">🐱 ${cat.name}</div>`;
     (cat.sa||[]).forEach(aid=>{
       const a=ADDONS.find(x=>x.id===aid);if(!a)return;
-      const q=(cat.aq||{})[aid]||0;
-      addonRows+=`<div class="cqitem"><div class="cqname"><div class="cqn">${a.name}</div><div class="cqp">${rp(a.price)} × pemberian</div></div><div class="cqbox"><button onclick="adjCatQty('${bkId}','${cat.name}','${aid}',-1)">−</button><input type="number" min="0" value="${q}" id="qty-${cat.name}-${aid}" onchange="setCatQty('${bkId}','${cat.name}','${aid}',this.value)"><button onclick="adjCatQty('${bkId}','${cat.name}','${aid}',1)">+</button></div><div class="cqsub" id="qs-${cat.name}-${aid}">${rp(a.price*q)}</div></div>`;
+      if(a.priceType==='per_duration'){
+        // Otomatis dihitung ulang dari durasi menginap SAAT INI (bukan disimpan manual)
+        const autoQty=calcDurationQty(n, a.durationDays);
+        cat.aq=cat.aq||{}; cat.aq[aid]=autoQty; // update supaya konsisten dgn yg tersimpan
+        addonRows+=`<div class="cqitem"><div class="cqname"><div class="cqn">${a.name} <span class="badge bg" style="font-size:10px">otomatis</span></div><div class="cqp">${rp(a.price)} × ${autoQty} (${n} malam ÷ ${a.durationDays||7} hari, dibulatkan ke atas)</div></div><div class="cqsub">${rp(a.price*autoQty)}</div></div>`;
+      } else {
+        const q=(cat.aq||{})[aid]||0;
+        addonRows+=`<div class="cqitem"><div class="cqname"><div class="cqn">${a.name}</div><div class="cqp">${rp(a.price)} × pemberian</div></div><div class="cqbox"><button onclick="adjCatQty('${bkId}','${cat.name}','${aid}',-1)">−</button><input type="number" min="0" value="${q}" id="qty-${cat.name}-${aid}" onchange="setCatQty('${bkId}','${cat.name}','${aid}',this.value)"><button onclick="adjCatQty('${bkId}','${cat.name}','${aid}',1)">+</button></div><div class="cqsub" id="qs-${cat.name}-${aid}">${rp(a.price*q)}</div></div>`;
+      }
     });
     (cat.ma||[]).forEach((m,mi)=>{
       const q=m.qty||0;
@@ -2437,42 +2476,75 @@ function rAddonList(){
     document.getElementById('addon-list').innerHTML='<div class="es"><p>Belum ada add-on. Data sedang dimuat atau tambahkan manual.</p></div>';
     return;
   }
-  document.getElementById('addon-list').innerHTML=ADDONS.map(a=>`
-    <div class="aitem" id="ai-${a.id}">
-      <div class="cqname"><div class="ainame">${a.name}</div><div class="aiprice">${rp(a.price)} / pemberian</div></div>
+  document.getElementById('addon-list').innerHTML=ADDONS.map(a=>{
+    const priceLabel=a.priceType==='per_duration'
+      ?`${rp(a.price)} / ${a.durationDays||7} hari (otomatis)`
+      :`${rp(a.price)} / pemberian`;
+    return `<div class="aitem" id="ai-${a.id}">
+      <div class="cqname"><div class="ainame">${a.name}</div><div class="aiprice">${priceLabel}</div></div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="startEdit('${a.id}')">Edit</button>
         <button class="btn btn-d" style="padding:6px 10px;font-size:12px" onclick="delAddon('${a.id}')">Hapus</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+function toggleAnDuration(){
+  const type=document.getElementById('an-price-type').value;
+  document.getElementById('an-duration-wrap').style.display=type==='per_duration'?'block':'none';
 }
 function startEdit(id){
   const a=ADDONS.find(x=>x.id===id);
+  const isDuration=a.priceType==='per_duration';
   document.getElementById('ai-'+id).innerHTML=`
-    <input type="text" value="${a.name}" id="ename-${id}" style="flex:2;font-size:13px">
-    <input type="number" value="${a.price}" id="eprice-${id}" style="width:100px;font-size:13px">
-    <div style="display:flex;gap:6px;flex-shrink:0">
-      <button class="btn btn-p" style="padding:6px 10px;font-size:12px" onclick="saveEdit('${id}')">Simpan</button>
-      <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="rAddonList()">Batal</button>
+    <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+      <div style="display:flex;gap:6px">
+        <input type="text" value="${a.name}" id="ename-${id}" style="flex:2;font-size:13px">
+        <input type="number" value="${a.price}" id="eprice-${id}" style="width:90px;font-size:13px">
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="etype-${id}" onchange="toggleEditDuration('${id}')" style="flex:1;font-size:12px">
+          <option value="per_serving"${!isDuration?' selected':''}>Per Pemberian</option>
+          <option value="per_duration"${isDuration?' selected':''}>Per Durasi</option>
+        </select>
+        <input type="number" id="edur-${id}" value="${a.durationDays||''}" placeholder="hari" style="width:70px;font-size:12px;display:${isDuration?'block':'none'}">
+      </div>
+      <div style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn btn-p" style="padding:6px 10px;font-size:12px" onclick="saveEdit('${id}')">Simpan</button>
+        <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="rAddonList()">Batal</button>
+      </div>
     </div>`;
+}
+function toggleEditDuration(id){
+  const type=document.getElementById('etype-'+id).value;
+  document.getElementById('edur-'+id).style.display=type==='per_duration'?'block':'none';
 }
 function saveEdit(id){
   const name=document.getElementById('ename-'+id).value.trim(),price=parseInt(document.getElementById('eprice-'+id).value)||0;
+  const priceType=document.getElementById('etype-'+id).value;
+  const durationDays=priceType==='per_duration'?(parseInt(document.getElementById('edur-'+id).value)||7):0;
   if(!name||!price){toast('⚠ Wajib diisi');return;}
-  apiPost({action:'updateAddon',id,name,price}).then(res=>{
+  if(priceType==='per_duration'&&!durationDays){toast('⚠ Isi durasi hari');return;}
+  apiPost({action:'updateAddon',id,name,price,price_type:priceType,duration_days:durationDays}).then(res=>{
     if(res.success){
-      const a=ADDONS.find(x=>x.id===id);a.name=name;a.price=price;
+      const a=ADDONS.find(x=>x.id===id);
+      a.name=name;a.price=price;a.priceType=priceType;a.durationDays=durationDays;
       rAddonList();toast('✓ Item diupdate');
     } else { toast('⚠ Gagal update'); }
   });
 }
 function addAddon(){
   const name=document.getElementById('an-name').value.trim(),price=parseInt(document.getElementById('an-price').value)||0;
+  const priceType=document.getElementById('an-price-type').value;
+  const durationDays=priceType==='per_duration'?(parseInt(document.getElementById('an-duration').value)||7):0;
   if(!name||!price){toast('⚠ Nama dan harga wajib');return;}
-  apiPost({action:'saveAddon',name,price}).then(res=>{
+  if(priceType==='per_duration'&&!durationDays){toast('⚠ Isi durasi hari');return;}
+  apiPost({action:'saveAddon',name,price,price_type:priceType,duration_days:durationDays}).then(res=>{
     if(res.success){
-      ADDONS.push({id:res.addon_id,name,price});
+      ADDONS.push({id:res.addon_id,name,price,priceType,durationDays});
       document.getElementById('an-name').value='';document.getElementById('an-price').value='';
+      document.getElementById('an-duration').value='';document.getElementById('an-price-type').value='per_serving';
+      toggleAnDuration();
       rAddonList();toast('✓ '+name+' ditambahkan');
     } else { toast('⚠ Gagal: '+(res.error||'')); }
   });

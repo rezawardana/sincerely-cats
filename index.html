@@ -951,6 +951,16 @@ function calcDurationQty(nights, durationDays){
   const d=durationDays||7;
   return Math.max(1, Math.ceil(nights/d));
 }
+// Ubah link share Google Drive (yang tidak bisa ditampilkan langsung) jadi
+// link gambar yang bisa dipakai <img src="">. Link non-Drive dibiarkan apa adanya.
+function convertDriveLink(url){
+  if(!url) return url;
+  const match = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(match && match[1]){
+    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+  }
+  return url;
+}
 // Bikin nama file PDF yang aman & rapi, contoh: "BK-001_Budi_Santoso"
 function safeFilename(str){
   return String(str||'').trim().replace(/[^a-zA-Z0-9 -]/g,'').replace(/\s+/g,'_');
@@ -2895,7 +2905,7 @@ function rProduk(){
     const vendor=TRINKET_VENDORS.find(v=>v.id===p.vendorId);
     const lowStock=p.stock<=(p.lowStockThreshold||5);
     const imgHtml=p.imageLink
-      ?`<img src="${p.imageLink}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      ?`<img src="${convertDriveLink(p.imageLink)}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       :'';
     return `<div style="padding:14px 16px;border-bottom:1px solid var(--border)">
       <div style="display:flex;gap:12px">
@@ -3128,7 +3138,7 @@ function rPosProducts(){
     const qtyInCart=inCart?inCart.qty:0;
     const outOfStock=p.stock<=0;
     const imgHtml=p.imageLink
-      ?`<img src="${p.imageLink}" class="pos-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      ?`<img src="${convertDriveLink(p.imageLink)}" class="pos-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       :'';
     return `<div class="pos-card${qtyInCart>0?' in-cart':''}${outOfStock?' out-of-stock':''}" onclick="${outOfStock?'':`addToCart('${p.id}')`}">
       ${qtyInCart>0?`<div class="pos-card-qty-badge">${qtyInCart}</div>`:''}

@@ -1936,22 +1936,32 @@ function buildInvoiceHTML(b, opts={}){
   const n = nights(b.ci, b.co);
   const isProforma = opts.isProforma !== false;
 
-  // Split nights into weekday/weekend/peak (untuk tampilan breakdown booking LAMA yang belum ada lock)
+  const hasLock = b.lockedBaseAmount!==undefined && b.lockedBaseAmount!==null;
+  let parsedBreakdown = null;
+  if(b.lockedBreakdown){
+    try { parsedBreakdown = JSON.parse(b.lockedBreakdown); } catch(e) { parsedBreakdown = null; }
+  }
+
+  // Split nights into weekday/weekend/peak — dipakai kalau TIDAK ada breakdown tersimpan
+  // (booking lama sebelum fitur ini ada, atau booking yang belum pernah di-lock)
   let wdNights=0, weNights=0, peakNightsInv=0, peakTotalInv=0;
-  for(let i=0;i<n;i++){
-    const d=new Date(b.ci);d.setDate(d.getDate()+i);
-    const ds=todayStr(d);
-    const peak=PEAK_SEASONS.find(p=>ds>=p.startDate && ds<p.endDate);
-    if(peak){ peakNightsInv++; peakTotalInv+=peak.pricePerNight; }
-    else if(d.getDay()===0||d.getDay()===6){ weNights++; }
-    else { wdNights++; }
+  if(!parsedBreakdown){
+    for(let i=0;i<n;i++){
+      const d=new Date(b.ci);d.setDate(d.getDate()+i);
+      const ds=todayStr(d);
+      const peak=PEAK_SEASONS.find(p=>ds>=p.startDate && ds<p.endDate);
+      if(peak){ peakNightsInv++; peakTotalInv+=peak.pricePerNight; }
+      else if(d.getDay()===0||d.getDay()===6){ weNights++; }
+      else { wdNights++; }
+    }
   }
   const numCats = b.cats.length;
-  const hasLock = b.lockedBaseAmount!==undefined && b.lockedBaseAmount!==null;
   const wdTotal = wdNights * ROOM.wd * numCats;
   const weTotal = weNights * ROOM.we * numCats;
   const peakTotal = peakTotalInv * numCats;
-  const lockedRoomTotal = hasLock ? Number(b.lockedBaseAmount) : (wdTotal+weTotal+peakTotal);
+  const lockedRoomTotal = parsedBreakdown
+    ? (parsedBreakdown.weekday.total + parsedBreakdown.weekend.total + parsedBreakdown.peaks.reduce((s,p)=>s+p.total,0))
+    : (hasLock ? Number(b.lockedBaseAmount) : (wdTotal+weTotal+peakTotal));
   const ef = (b.eh||0)*ROOM.ei*numCats;
   const lf = (b.lh||0)*ROOM.lo*numCats;
 
@@ -1988,7 +1998,37 @@ function buildInvoiceHTML(b, opts={}){
 
   // Table rows
   let tableRows = '';
-  if(hasLock){
+  if(parsedBreakdown){
+    // Paling akurat — pakai rincian yang sudah dikunci persis sesuai kondisi saat booking dibuat
+    const bd=parsedBreakdown;
+    if(bd.weekday.nights>0) tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Cat Hotel Weekdays</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${bd.weekday.nights}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(bd.weekday.rate)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(bd.weekday.total)}</td>
+    </tr>`;
+    if(bd.weekend.nights>0) tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Cat Hotel Weekend</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${bd.weekend.nights}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(bd.weekend.rate)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(bd.weekend.total)}</td>
+    </tr>`;
+    (bd.peaks||[]).forEach(p=>{
+      tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${p.name}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${p.nights}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(p.rate)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(p.total)}</td>
+    </tr>`;
+    });
+  } else if(hasLock){
+    // Booking sudah dikunci tapi dari sebelum fitur breakdown ada — cuma ada angka total
     tableRows += `
     <tr>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Kamar (${n} malam)</td>
@@ -1998,6 +2038,7 @@ function buildInvoiceHTML(b, opts={}){
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(lockedRoomTotal)}</td>
     </tr>`;
   } else {
+    // Belum ter-lock sama sekali — hitung live pakai tarif sekarang
     if(wdNights>0) tableRows += `
     <tr>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Cat Hotel Weekdays</td>

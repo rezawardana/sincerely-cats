@@ -557,8 +557,8 @@ textarea{resize:vertical;min-height:60px}
         <div class="fg">
           <div class="fgr"><label>Weekday / malam</label><input type="number" value="100000" id="s-wd"></div>
           <div class="fgr"><label>Weekend / malam</label><input type="number" value="130000" id="s-we"></div>
-          <div class="fgr"><label>Early check-in / jam</label><input type="number" value="20000" id="s-ei"></div>
-          <div class="fgr"><label>Late check-out / jam</label><input type="number" value="20000" id="s-lo"></div>
+          <div class="fgr"><label>Early Check-in (flat)</label><input type="number" value="20000" id="s-ei"></div>
+          <div class="fgr"><label>Late Check-out (flat)</label><input type="number" value="20000" id="s-lo"></div>
         </div>
         <button class="btn btn-p btn-full" style="margin-top:14px" onclick="saveRoom()">Simpan Tarif</button>
       </div>
@@ -968,6 +968,11 @@ function calcDurationQty(nights, durationDays){
   const d=durationDays||7;
   return Math.max(1, Math.ceil(nights/d));
 }
+// Early check-in / late check-out sekarang FLAT — sekali bayar Rp20.000
+// berapapun jam yang diminta (bukan dikali jumlah jam)
+function flatFee(hours, rate){
+  return hours>0 ? rate : 0;
+}
 // Ubah link share Google Drive (yang tidak bisa ditampilkan langsung) jadi
 // link gambar yang bisa dipakai <img src="">. Link non-Drive dibiarkan apa adanya.
 function convertDriveLink(url){
@@ -1020,7 +1025,7 @@ function calcBkTotal(b){
   // Booking lama (sebelum fitur ini ada) belum punya lock — fallback ke hitungan live.
   const hasLock = b.lockedBaseAmount!==undefined && b.lockedBaseAmount!==null;
   const br = hasLock ? Number(b.lockedBaseAmount) : baseRate(b.ci,n)*numCats;
-  const ef=(b.eh||0)*ROOM.ei*numCats, lf=(b.lh||0)*ROOM.lo*numCats;
+  const ef=flatFee(b.eh,ROOM.ei)*numCats, lf=flatFee(b.lh,ROOM.lo)*numCats;
   let ao=0; b.cats.forEach(cat=>ao+=calcCatAddonTot(cat));
   return br+ef+lf+ao;
 }
@@ -1257,7 +1262,7 @@ function openBkDetail(bkId){
   const numCats=b.cats.length||1;
   const hasLock=b.lockedBaseAmount!==undefined && b.lockedBaseAmount!==null;
   const br=hasLock?Number(b.lockedBaseAmount):baseRate(b.ci,n)*numCats;
-  const ef=(b.eh||0)*ROOM.ei*numCats, lf=(b.lh||0)*ROOM.lo*numCats;
+  const ef=flatFee(b.eh,ROOM.ei)*numCats, lf=flatFee(b.lh,ROOM.lo)*numCats;
   let html=`
     <div class="dr"><span>ID Booking</span><span>${b.id}</span></div>
     <div class="dr"><span>Pelanggan</span><span>${b.owner}</span></div>
@@ -1462,8 +1467,8 @@ function calcAllCats(){
     if(isPeak) peakNightsCount++;
     else (d.getDay()===0||d.getDay()===6)?we++:wd++;
   }
-  const ef=(parseInt(document.getElementById('b-cih').value)||0)*ROOM.ei;
-  const lf=(parseInt(document.getElementById('b-coh').value)||0)*ROOM.lo;
+  const ef=flatFee(parseInt(document.getElementById('b-cih').value)||0, ROOM.ei);
+  const lf=flatFee(parseInt(document.getElementById('b-coh').value)||0, ROOM.lo);
   // Count valid cats
   const rows=document.querySelectorAll('[id^="cbrow-"]');
   const validCats=[...rows].filter(r=>{
@@ -1962,8 +1967,8 @@ function buildInvoiceHTML(b, opts={}){
   const lockedRoomTotal = parsedBreakdown
     ? (parsedBreakdown.weekday.total + parsedBreakdown.weekend.total + parsedBreakdown.peaks.reduce((s,p)=>s+p.total,0))
     : (hasLock ? Number(b.lockedBaseAmount) : (wdTotal+weTotal+peakTotal));
-  const ef = (b.eh||0)*ROOM.ei*numCats;
-  const lf = (b.lh||0)*ROOM.lo*numCats;
+  const ef = flatFee(b.eh,ROOM.ei)*numCats;
+  const lf = flatFee(b.lh,ROOM.lo)*numCats;
 
   // Add-ons: collect per cat (for proforma show names, for final show qty x price)
   let addonLines = [];
@@ -2066,17 +2071,17 @@ function buildInvoiceHTML(b, opts={}){
   }
   if(ef>0) tableRows += `
     <tr>
-      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Early Check-in</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Early Check-in (${b.eh} jam lebih awal)</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
-      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${b.eh}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">flat</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(ROOM.ei)}</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(ef)}</td>
     </tr>`;
   if(lf>0) tableRows += `
     <tr>
-      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Late Check-out</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Late Check-out (${b.lh} jam lebih lambat)</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
-      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${b.lh}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">flat</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(ROOM.lo)}</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(lf)}</td>
     </tr>`;
@@ -2276,8 +2281,8 @@ function openPL(bkId){
   const n=nights(b.ci,b.co);
   const hasLock=b.lockedBaseAmount!==undefined && b.lockedBaseAmount!==null;
   const br=hasLock?Number(b.lockedBaseAmount):baseRate(b.ci,n)*b.cats.length;
-  const ef=(b.eh||0)*ROOM.ei*b.cats.length;
-  const lf=(b.lh||0)*ROOM.lo*b.cats.length;
+  const ef=flatFee(b.eh,ROOM.ei)*b.cats.length;
+  const lf=flatFee(b.lh,ROOM.lo)*b.cats.length;
 
   // Build addon qty per cat
   let addonRows='';

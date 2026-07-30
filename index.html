@@ -1936,17 +1936,22 @@ function buildInvoiceHTML(b, opts={}){
   const n = nights(b.ci, b.co);
   const isProforma = opts.isProforma !== false;
 
-  // Split nights into weekday/weekend per cat (untuk tampilan breakdown booking LAMA yang belum ada lock)
-  let wdNights=0, weNights=0;
+  // Split nights into weekday/weekend/peak (untuk tampilan breakdown booking LAMA yang belum ada lock)
+  let wdNights=0, weNights=0, peakNightsInv=0, peakTotalInv=0;
   for(let i=0;i<n;i++){
     const d=new Date(b.ci);d.setDate(d.getDate()+i);
-    (d.getDay()===0||d.getDay()===6)?weNights++:wdNights++;
+    const ds=todayStr(d);
+    const peak=PEAK_SEASONS.find(p=>ds>=p.startDate && ds<p.endDate);
+    if(peak){ peakNightsInv++; peakTotalInv+=peak.pricePerNight; }
+    else if(d.getDay()===0||d.getDay()===6){ weNights++; }
+    else { wdNights++; }
   }
   const numCats = b.cats.length;
   const hasLock = b.lockedBaseAmount!==undefined && b.lockedBaseAmount!==null;
   const wdTotal = wdNights * ROOM.wd * numCats;
   const weTotal = weNights * ROOM.we * numCats;
-  const lockedRoomTotal = hasLock ? Number(b.lockedBaseAmount) : (wdTotal+weTotal);
+  const peakTotal = peakTotalInv * numCats;
+  const lockedRoomTotal = hasLock ? Number(b.lockedBaseAmount) : (wdTotal+weTotal+peakTotal);
   const ef = (b.eh||0)*ROOM.ei*numCats;
   const lf = (b.lh||0)*ROOM.lo*numCats;
 
@@ -2008,6 +2013,14 @@ function buildInvoiceHTML(b, opts={}){
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${weNights}</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(ROOM.we)}</td>
       <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(weTotal)}</td>
+    </tr>`;
+    if(peakNightsInv>0) tableRows += `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">Peak Season</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${numCats}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;text-align:center">${peakNightsInv}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px">${rp(Math.round(peakTotalInv/peakNightsInv))}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #e8e6e0;font-size:13px;font-weight:500">${rp(peakTotal)}</td>
     </tr>`;
   }
   if(ef>0) tableRows += `

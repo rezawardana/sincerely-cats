@@ -3400,13 +3400,17 @@ function saveEditPeak(id){
   const price=parseInt(document.getElementById('pkeprice-'+id).value)||0;
   if(!name||!startDate||!endDate||!price){toast('⚠ Lengkapi semua field');return;}
   if(endDate<=startDate){toast('⚠ Tanggal selesai harus setelah tanggal mulai');return;}
+  showLoading('Menyimpan & menyesuaikan booking hari ini...');
   apiPost({action:'updatePeakSeason',id,name,start_date:startDate,end_date:endDate,price_per_night:price}).then(res=>{
+    hideLoading();
     if(res.success){
       const p=PEAK_SEASONS.find(x=>x.id===id);
       p.name=name;p.startDate=startDate;p.endDate=endDate;p.pricePerNight=price;
-      rPeakSeasons();toast('✓ Periode diupdate');
+      rPeakSeasons();
+      loadAllData(); // refresh booking, siapa tahu ada yang ikut ter-update retroaktif
+      toast('✓ Periode diupdate');
     } else { toast('⚠ Gagal update'); }
-  });
+  }).catch(()=>{hideLoading();});
 }
 function addPeakSeason(){
   const name=document.getElementById('pk-name').value.trim();
@@ -3415,16 +3419,20 @@ function addPeakSeason(){
   const price=parseInt(document.getElementById('pk-price').value)||0;
   if(!name||!startDate||!endDate||!price){toast('⚠ Lengkapi semua field');return;}
   if(endDate<=startDate){toast('⚠ Tanggal selesai harus setelah tanggal mulai');return;}
+  showLoading('Menyimpan & menyesuaikan booking hari ini...');
   apiPost({action:'savePeakSeason',name,start_date:startDate,end_date:endDate,price_per_night:price}).then(res=>{
+    hideLoading();
     if(res.success){
       PEAK_SEASONS.push({id:res.peak_id,name,startDate,endDate,pricePerNight:price});
       document.getElementById('pk-name').value='';
       document.getElementById('pk-start').value='';
       document.getElementById('pk-end').value='';
       document.getElementById('pk-price').value='';
-      rPeakSeasons();toast('✓ Periode '+name+' ditambahkan');
+      rPeakSeasons();
+      loadAllData(); // refresh booking, siapa tahu ada yang ikut ter-update retroaktif
+      toast('✓ Periode '+name+' ditambahkan');
     } else { toast('⚠ Gagal: '+(res.error||'')); }
-  });
+  }).catch(()=>{hideLoading();});
 }
 function delPeakSeason(id){
   if(!confirm('Yakin hapus periode ini? Booking yang sudah dibuat tidak akan terpengaruh.')) return;

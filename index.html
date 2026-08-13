@@ -857,6 +857,47 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<!-- CANCEL BOOKING MODAL (dengan DP) -->
+<div class="ov" id="cn-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt">Batalkan Booking</div><button class="mc2" onclick="closeOv('cn-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fgr full"><label id="cn-info" style="font-weight:600;color:var(--text)"></label></div>
+        <div class="fgr full">
+          <label>DP Sudah Dibayar Pelanggan</label>
+          <div id="cn-dp-total" style="font-size:22px;font-weight:700">Rp 0</div>
+        </div>
+        <div class="fgr full">
+          <label>Jumlah Di-refund ke Pelanggan</label>
+          <div style="display:flex;gap:8px">
+            <select id="cn-refund-type" onchange="calcCancelSplit()" style="width:120px">
+              <option value="nom">Nominal (Rp)</option>
+              <option value="pct">Persen (%)</option>
+            </select>
+            <input type="number" id="cn-refund" value="0" min="0" oninput="calcCancelSplit()" style="flex:1">
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Isi 0 kalau DP hangus sepenuhnya, atau isi sebagian sesuai kebijakan saat itu</div>
+        </div>
+        <div class="fgr full" style="background:var(--accent-l);border-radius:10px;padding:12px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:12px;color:var(--text2)">Di-refund ke Pelanggan</span>
+            <span id="cn-refund-amt" style="font-weight:700;color:var(--text);font-size:14px">Rp 0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--text2)">Menjadi Pendapatan Bisnis (Hangus)</span>
+            <span id="cn-forfeit" style="font-weight:700;color:var(--accent);font-size:16px">Rp 0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeOv('cn-ov')">Batal</button>
+      <button class="btn btn-d" onclick="confirmCancelBooking()">❌ Konfirmasi Pembatalan</button>
+    </div>
+  </div>
+</div>
+
 <!-- CALENDAR DAY DETAIL -->
 <div class="ov" id="dd-ov">
   <div class="modal">
@@ -1649,21 +1690,71 @@ function saveBk(){
 /* ============================================================
    CHECK-IN
    ============================================================ */
+let cancelBkId=null;
 function cancelBooking(bkId){
   if(SUBMIT_LOCK) return;
   const b=BOOKINGS.find(x=>x.id===bkId);
   if(!b) return;
-  if(!confirm('Yakin ingin membatalkan booking '+b.owner+' ('+b.cats.map(c=>c.name).join(', ')+')?')) return;
+
+  if(b.dpConfirmed && b.dp>0){
+    // Ada DP tersimpan — buka modal untuk atur refund vs hangus
+    cancelBkId=bkId;
+    document.getElementById('cn-info').textContent=b.owner+' ('+b.cats.map(c=>c.name).join(', ')+')';
+    document.getElementById('cn-dp-total').textContent=rp(b.dp);
+    document.getElementById('cn-refund-type').value='nom';
+    document.getElementById('cn-refund').value=0;
+    calcCancelSplit();
+    document.getElementById('cn-ov').classList.add('open');
+  } else {
+    // Tidak ada DP — cancel langsung, tidak ada uang yang perlu diatur
+    if(!confirm('Yakin ingin membatalkan booking '+b.owner+' ('+b.cats.map(c=>c.name).join(', ')+')?')) return;
+    doCancelBooking(bkId, 0, 0);
+  }
+}
+// Hitung nominal refund aktual dari input (baik itu mode persen atau nominal)
+function getCancelRefundAmt(){
+  const b=BOOKINGS.find(x=>x.id===cancelBkId);
+  if(!b) return 0;
+  const type=document.getElementById('cn-refund-type').value;
+  const val=parseFloat(document.getElementById('cn-refund').value)||0;
+  const refund=type==='pct'?Math.round(b.dp*Math.min(val,100)/100):Math.min(val,b.dp);
+  return Math.max(0,refund);
+}
+function calcCancelSplit(){
+  const b=BOOKINGS.find(x=>x.id===cancelBkId);
+  if(!b) return;
+  const refund=getCancelRefundAmt();
+  const forfeit=b.dp-refund;
+  document.getElementById('cn-refund-amt').textContent=rp(refund);
+  document.getElementById('cn-forfeit').textContent=rp(forfeit);
+}
+function confirmCancelBooking(){
+  const b=BOOKINGS.find(x=>x.id===cancelBkId);
+  if(!b) return;
+  const refund=getCancelRefundAmt();
+  const forfeit=b.dp-refund;
+  closeOv('cn-ov');
+  doCancelBooking(cancelBkId, refund, forfeit);
+}
+function doCancelBooking(bkId, refundAmt, forfeitAmt){
+  if(SUBMIT_LOCK) return;
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  if(!b) return;
   SUBMIT_LOCK=true;
   showLoading('Membatalkan booking...');
-  apiPost({action:'cancelBooking', booking_id:bkId}).then(res=>{
+  apiPost({action:'cancelBooking', booking_id:bkId, refund_amount:refundAmt, forfeit_amount:forfeitAmt}).then(res=>{
     hideLoading();
     if(res.success){
       b.status='cancelled';
       b.cancelledAt=todayStr();
+      if(forfeitAmt>0){
+        TXS.unshift({date:todayStr(), id:bkId, owner:b.owner, cats:b.cats.map(c=>c.name).join(', '), n:0, base:0, ao:0, disc:0, dp:0, tot:forfeitAmt});
+      }
       syncSlots();
       rMini();rFull();rRecent();rAll(currentBkFilter);
-      toast('❌ Booking '+b.owner+' dibatalkan');
+      toast(forfeitAmt>0
+        ? '❌ Booking dibatalkan — '+rp(forfeitAmt)+' tercatat sebagai pendapatan'
+        : '❌ Booking '+b.owner+' dibatalkan');
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
   }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal')); }).finally(()=>{ SUBMIT_LOCK=false; });
 }
@@ -3534,8 +3625,9 @@ function rTX(){
         <div style="font-size:13px;font-weight:500">${t.owner}</div>
         <div style="font-size:13px;font-weight:700;color:var(--accent)">${rp(t.tot)}</div>
       </div>
-      <div style="font-size:11px;color:var(--text3)">${t.id} · ${t.cats} · ${t.n} malam · ${t.date}</div>
+      <div style="font-size:11px;color:var(--text3)">${t.id} · ${t.cats} · ${t.n>0?t.n+' malam · ':''}${t.date}</div>
       <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">
+        ${t.n===0?`<span class="badge br">❌ DP Hangus (Pembatalan)</span>`:''}
         ${t.ao>0?`<span class="badge bp">Add-on ${rp(t.ao)}</span>`:''}
         ${t.disc>0?`<span class="badge br">Diskon ${rp(t.disc)}</span>`:''}
         ${t.dp>0?`<span class="badge bb">DP ${rp(t.dp)}</span>`:''}

@@ -1343,9 +1343,11 @@ function openBkDetail(bkId){
    ============================================================ */
 let catRowCount=0;
 let editingBkId=null;
+let MANUAL_ADDONS_DRAFT={}; // {rowId: [{name,price,qty}]} — draft add-on manual di form booking
 
 function openBooking(){
   editingBkId=null;
+  MANUAL_ADDONS_DRAFT={};
   catRowCount=0;
   // Reset title & save button
   document.querySelector('#bk-ov .mt').textContent='Booking Baru';
@@ -1379,6 +1381,7 @@ function editBooking(bkId){
   if(!b) return;
   editingBkId = bkId;
   catRowCount = 0;
+  MANUAL_ADDONS_DRAFT = {};
 
   // Set form title
   document.querySelector('#bk-ov .mt').textContent = 'Edit Booking — '+b.id;
@@ -1403,6 +1406,9 @@ function editBooking(bkId){
     addCatBookingRow(cat.name, cat.breed, cat.slotId);
     // Check addons + restore estimated qty
     const rowId = catRowCount;
+    // Prefill draft add-on manual dari data yang sudah tersimpan
+    MANUAL_ADDONS_DRAFT[rowId] = (cat.ma||[]).map(m=>({name:m.name,price:m.price,qty:m.qty}));
+    rManualAddonDraftList(rowId);
     setTimeout(()=>{
       (cat.sa||[]).forEach(aid=>{
         const chk = document.getElementById('cbchk-'+rowId+'-'+aid);
@@ -1471,6 +1477,16 @@ function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
         }).join('')}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:6px">Estimasi bisa disesuaikan lagi saat checkout sesuai pemakaian aktual. Add-on "otomatis" dihitung dari lama menginap.</div>
       </div>
+      <div class="fgr full">
+        <label>Add-on Manual (nominal custom)</label>
+        <div id="cb-manual-list-${id}" style="margin-bottom:6px"></div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="cb-manual-name-${id}" placeholder="Nama layanan" style="flex:2">
+          <input type="number" id="cb-manual-price-${id}" placeholder="Harga" style="flex:1">
+          <input type="number" id="cb-manual-qty-${id}" placeholder="Qty" value="1" style="width:52px;text-align:center">
+          <button class="btn btn-g" onclick="addManualAddonDraft('${id}')" style="padding:8px 12px;flex-shrink:0">+</button>
+        </div>
+      </div>
     </div>`;
   document.getElementById('cat-booking-rows').appendChild(div);
   if(prefillSlotId){
@@ -1482,6 +1498,39 @@ function cbRowClick(e, rowId, aid){
   const chk=document.getElementById('cbchk-'+rowId+'-'+aid);
   chk.checked=!chk.checked;
   syncCbSel(rowId, aid);
+}
+
+function addManualAddonDraft(rowId){
+  const name=document.getElementById('cb-manual-name-'+rowId).value.trim();
+  const price=parseInt(document.getElementById('cb-manual-price-'+rowId).value)||0;
+  const qty=parseInt(document.getElementById('cb-manual-qty-'+rowId).value)||1;
+  if(!name||!price){toast('⚠ Isi nama dan harga add-on');return;}
+  if(!MANUAL_ADDONS_DRAFT[rowId]) MANUAL_ADDONS_DRAFT[rowId]=[];
+  MANUAL_ADDONS_DRAFT[rowId].push({name,price,qty});
+  document.getElementById('cb-manual-name-'+rowId).value='';
+  document.getElementById('cb-manual-price-'+rowId).value='';
+  document.getElementById('cb-manual-qty-'+rowId).value='1';
+  rManualAddonDraftList(rowId);
+  calcAllCats();
+}
+function rManualAddonDraftList(rowId){
+  const list=document.getElementById('cb-manual-list-'+rowId);
+  if(!list) return;
+  const items=MANUAL_ADDONS_DRAFT[rowId]||[];
+  if(!items.length){ list.innerHTML=''; return; }
+  list.innerHTML=items.map((m,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--accent-l);border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:12px">
+      <span>${m.name} × ${m.qty}</span>
+      <span style="display:flex;gap:10px;align-items:center">
+        ${rp(m.price*m.qty)}
+        <button onclick="removeManualAddonDraft('${rowId}',${i})" style="color:var(--red);border:none;background:none;cursor:pointer;font-size:15px;font-weight:700;padding:0">×</button>
+      </span>
+    </div>`).join('');
+}
+function removeManualAddonDraft(rowId, idx){
+  MANUAL_ADDONS_DRAFT[rowId].splice(idx,1);
+  rManualAddonDraftList(rowId);
+  calcAllCats();
 }
 function syncCbSel(rowId, aid){
   const chk=document.getElementById('cbchk-'+rowId+'-'+aid);
@@ -1547,6 +1596,15 @@ function calcAllCats(){
         addonLines[a.name].qty+=qty;
         addonLines[a.name].amt+=amt;
       }
+    });
+    // Add-on manual (nominal custom) yang sudah ditambahkan ke draft
+    (MANUAL_ADDONS_DRAFT[id]||[]).forEach(m=>{
+      const amt=m.price*m.qty;
+      addonEst+=amt;
+      const key=m.name+' (manual)';
+      if(!addonLines[key]) addonLines[key]={qty:0,amt:0};
+      addonLines[key].qty+=m.qty;
+      addonLines[key].amt+=amt;
     });
   });
   Object.entries(addonLines).forEach(([name,d])=>{
@@ -1615,7 +1673,8 @@ function saveBk(){
         aq[aid]=parseInt(document.getElementById('cbqty-'+id+'-'+aid)?.value)||1;
       }
     });
-    cats.push({name,breed,slotId,sa,aq,ma:[]});
+    const ma=(MANUAL_ADDONS_DRAFT[id]||[]).map(m=>({name:m.name,price:m.price,qty:m.qty}));
+    cats.push({name,breed,slotId,sa,aq,ma});
   });
   if(!valid||!cats.length){toast('⚠ Isi nama kucing & slot untuk setiap kucing');return;}
   const usedSlots=cats.map(c=>c.slotId);
@@ -2396,6 +2455,12 @@ function openPL(bkId){
       const q=m.qty||0;
       addonRows+=`<div class="cqitem"><div class="cqname"><div class="cqn">${m.name} <span class="badge bgr" style="font-size:10px">manual</span></div><div class="cqp">${rp(m.price)} × pemberian</div></div><div class="cqbox"><button onclick="adjManualQty('${bkId}','${cat.name}',${mi},-1)">−</button><input type="number" min="0" value="${q}" id="mqty-${cat.name}-${mi}"><button onclick="adjManualQty('${bkId}','${cat.name}',${mi},1)">+</button></div><div class="cqsub" id="mqs-${cat.name}-${mi}">${rp(m.price*q)}</div></div>`;
     });
+    addonRows+=`<div style="display:flex;gap:6px;margin-top:6px">
+      <input type="text" id="pl-manual-name-${cat.name}" placeholder="Nama layanan" style="flex:2;font-size:12px;padding:6px 8px">
+      <input type="number" id="pl-manual-price-${cat.name}" placeholder="Harga" style="flex:1;font-size:12px;padding:6px 8px">
+      <input type="number" id="pl-manual-qty-${cat.name}" placeholder="Qty" value="1" style="width:48px;text-align:center;font-size:12px;padding:6px 4px">
+      <button class="btn btn-g" onclick="addManualAddonAtCheckout('${bkId}','${cat.name}')" style="padding:6px 10px;font-size:12px;flex-shrink:0">+</button>
+    </div>`;
     addonRows+='</div>';
   });
 
@@ -2454,6 +2519,19 @@ function adjManualQty(bkId,catName,mi,d){
   document.getElementById('mqty-'+catName+'-'+mi).value=cat.ma[mi].qty;
   document.getElementById('mqs-'+catName+'-'+mi).textContent=rp(cat.ma[mi].price*cat.ma[mi].qty);
   updatePLTotal(b);
+}
+function addManualAddonAtCheckout(bkId, catName){
+  const b=BOOKINGS.find(x=>x.id===bkId);
+  const cat=b.cats.find(c=>c.name===catName);
+  if(!cat) return;
+  const name=document.getElementById('pl-manual-name-'+catName).value.trim();
+  const price=parseInt(document.getElementById('pl-manual-price-'+catName).value)||0;
+  const qty=parseInt(document.getElementById('pl-manual-qty-'+catName).value)||1;
+  if(!name||!price){toast('⚠ Isi nama dan harga add-on');return;}
+  if(!cat.ma) cat.ma=[];
+  cat.ma.push({name,price,qty});
+  openPL(bkId); // render ulang modal supaya item baru langsung kelihatan
+  toast('✓ '+name+' ditambahkan untuk '+catName);
 }
 function updatePLTotal(b){
   const sub=calcBkTotal(b);

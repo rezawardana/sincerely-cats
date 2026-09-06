@@ -411,6 +411,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="mc"><div class="mlbl">Booking</div><div class="mval" id="r-bk">0</div><div class="msub" id="r-bk-sub">bulan ini</div></div>
     </div>
     <div class="card"><div class="ch"><span class="ct">Pendapatan 7 Hari Terakhir</span></div><div class="cb"><div class="barchart" id="rev-chart"></div><div style="margin-top:10px;font-size:12px;color:var(--text3)" id="rev-chart-total">—</div></div></div>
+    <div class="card"><div class="ch"><span class="ct">Pendapatan 6 Bulan Terakhir</span></div><div class="cb"><div class="barchart" id="rev-chart-month"></div><div style="margin-top:10px;font-size:12px;color:var(--text3)" id="rev-chart-month-total">—</div></div></div>
     <div class="card"><div class="ch"><span class="ct">Add-on Breakdown</span></div><div class="cb" id="addon-breakdown"></div></div>
     <div class="card"><div class="ch"><span class="ct">Riwayat Transaksi</span></div><div id="tx-list" style="padding:8px 0"></div></div>
   </div>
@@ -819,7 +820,14 @@ textarea{resize:vertical;min-height:60px}
         <div class="fgr"><label>Kategori</label><select id="pd-category"><option value="">-- Pilih Kategori --</option></select></div>
         <div class="fgr"><label>Vendor/Artist *</label><select id="pd-vendor"><option value="">-- Pilih Vendor --</option></select></div>
         <div class="fgr"><label>Harga Jual (Rp) *</label><input type="number" id="pd-price" placeholder="cth. 10000"></div>
-        <div class="fgr"><label>Split Vendor (%) *</label><input type="number" id="pd-split" placeholder="cth. 70" min="0" max="100"></div>
+        <div class="fgr"><label>Tipe Split Vendor</label>
+          <select id="pd-split-type" onchange="togglePdSplitType()">
+            <option value="pct">Persen (%)</option>
+            <option value="nom">Nominal Flat (Rp)</option>
+          </select>
+        </div>
+        <div class="fgr" id="pd-split-pct-wrap"><label>Split Vendor (%) *</label><input type="number" id="pd-split" placeholder="cth. 70" min="0" max="100"></div>
+        <div class="fgr" id="pd-split-nom-wrap" style="display:none"><label>Split Vendor per Item (Rp) *</label><input type="number" id="pd-split-nom" placeholder="cth. 10000"></div>
         <div class="fgr"><label>Stok Awal *</label><input type="number" id="pd-stock" placeholder="cth. 50"></div>
         <div class="fgr"><label>Batas Stok Menipis</label><input type="number" id="pd-threshold" placeholder="cth. 5" value="5"></div>
         <div class="fgr full"><label>Link Foto (opsional)</label><input type="text" id="pd-image" placeholder="Link Google Drive/Photos yang bisa diakses publik"></div>
@@ -3210,7 +3218,7 @@ function rProduk(){
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.category||'Tanpa kategori'} · ${vendor?vendor.name:'Vendor tidak ditemukan'}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
             <span class="badge bg">${rp(p.sellPrice)}</span>
-            <span class="badge bp">Split ${p.vendorSplitPct}%</span>
+            <span class="badge bp">Split ${p.splitType==='nom'?rp(p.vendorSplitNominal||0):((p.vendorSplitPct||0)+'%')}</span>
             <span class="badge ${lowStock?'br':'bgr'}">Stok: ${p.stock}</span>
           </div>
         </div>
@@ -3298,6 +3306,11 @@ function rProdukCategoryDropdown(legacyValue){
   if(cur) sel.value=cur;
 }
 
+function togglePdSplitType(){
+  const type=document.getElementById('pd-split-type').value;
+  document.getElementById('pd-split-pct-wrap').style.display=type==='pct'?'block':'none';
+  document.getElementById('pd-split-nom-wrap').style.display=type==='nom'?'block':'none';
+}
 function openProduk(){
   editProdukIdx=null;
   if(!TRINKET_VENDORS.length){
@@ -3308,7 +3321,10 @@ function openProduk(){
   document.getElementById('pd-name').value='';
   rProdukCategoryDropdown('');
   document.getElementById('pd-price').value='';
+  document.getElementById('pd-split-type').value='pct';
   document.getElementById('pd-split').value='';
+  document.getElementById('pd-split-nom').value='';
+  togglePdSplitType();
   document.getElementById('pd-stock').value='';
   document.getElementById('pd-threshold').value='5';
   document.getElementById('pd-image').value='';
@@ -3323,7 +3339,10 @@ function openEditProduk(idx){
   document.getElementById('pd-name').value=p.name;
   rProdukCategoryDropdown(p.category||'');
   document.getElementById('pd-price').value=p.sellPrice;
-  document.getElementById('pd-split').value=p.vendorSplitPct;
+  document.getElementById('pd-split-type').value=p.splitType||'pct';
+  document.getElementById('pd-split').value=p.vendorSplitPct||'';
+  document.getElementById('pd-split-nom').value=p.vendorSplitNominal||'';
+  togglePdSplitType();
   document.getElementById('pd-stock').value=p.stock;
   document.getElementById('pd-threshold').value=p.lowStockThreshold||5;
   document.getElementById('pd-image').value=p.imageLink||'';
@@ -3336,9 +3355,13 @@ function saveProduk(){
   const name=document.getElementById('pd-name').value.trim();
   const vendorId=document.getElementById('pd-vendor').value;
   const sellPrice=parseInt(document.getElementById('pd-price').value)||0;
-  const vendorSplitPct=parseInt(document.getElementById('pd-split').value);
+  const splitType=document.getElementById('pd-split-type').value;
+  const vendorSplitPct=splitType==='pct'?(parseInt(document.getElementById('pd-split').value)||0):0;
+  const vendorSplitNominal=splitType==='nom'?(parseInt(document.getElementById('pd-split-nom').value)||0):0;
   const stock=parseInt(document.getElementById('pd-stock').value)||0;
-  if(!name||!vendorId||!sellPrice||isNaN(vendorSplitPct)){toast('⚠ Lengkapi nama, vendor, harga, dan split %');return;}
+  if(!name||!vendorId||!sellPrice){toast('⚠ Lengkapi nama, vendor, dan harga');return;}
+  if(splitType==='pct'&&!document.getElementById('pd-split').value){toast('⚠ Isi split persen vendor');return;}
+  if(splitType==='nom'&&!vendorSplitNominal){toast('⚠ Isi split nominal vendor');return;}
   const category=document.getElementById('pd-category').value.trim();
   const lowStockThreshold=parseInt(document.getElementById('pd-threshold').value)||5;
   const imageLink=document.getElementById('pd-image').value.trim();
@@ -3346,7 +3369,7 @@ function saveProduk(){
   SUBMIT_LOCK=true;
   showLoading('Menyimpan produk...');
   const apiAction=editProdukIdx!==null?'updateTrinketProduct':'saveTrinketProduct';
-  const payload={action:apiAction,name,category,vendor_id:vendorId,sell_price:sellPrice,vendor_split_pct:vendorSplitPct,stock,low_stock_threshold:lowStockThreshold,image_link:imageLink};
+  const payload={action:apiAction,name,category,vendor_id:vendorId,sell_price:sellPrice,split_type:splitType,vendor_split_pct:vendorSplitPct,vendor_split_nominal:vendorSplitNominal,stock,low_stock_threshold:lowStockThreshold,image_link:imageLink};
   if(editProdukIdx!==null) payload.id=TRINKET_PRODUCTS[editProdukIdx].id;
   apiPost(payload).then(res=>{
     hideLoading();
@@ -3354,10 +3377,11 @@ function saveProduk(){
       if(editProdukIdx!==null){
         const p=TRINKET_PRODUCTS[editProdukIdx];
         p.name=name;p.category=category;p.vendorId=vendorId;p.sellPrice=sellPrice;
-        p.vendorSplitPct=vendorSplitPct;p.stock=stock;p.lowStockThreshold=lowStockThreshold;p.imageLink=imageLink;
+        p.splitType=splitType;p.vendorSplitPct=vendorSplitPct;p.vendorSplitNominal=vendorSplitNominal;
+        p.stock=stock;p.lowStockThreshold=lowStockThreshold;p.imageLink=imageLink;
         toast('✓ Produk diupdate');
       } else {
-        TRINKET_PRODUCTS.push({id:res.product_id,name,category,vendorId,sellPrice,vendorSplitPct,stock,lowStockThreshold,imageLink,active:true});
+        TRINKET_PRODUCTS.push({id:res.product_id,name,category,vendorId,sellPrice,splitType,vendorSplitPct,vendorSplitNominal,stock,lowStockThreshold,imageLink,active:true});
         toast('✓ '+name+' ditambahkan');
       }
       closeOv('pd-ov'); rProduk();
@@ -3451,7 +3475,7 @@ function addToCart(productId){
   const currentQty=existing?existing.qty:0;
   if(currentQty>=p.stock){ toast('⚠ Stok '+p.name+' tidak cukup'); return; }
   if(existing){ existing.qty++; }
-  else { POS_CART.push({productId:p.id,name:p.name,price:p.sellPrice,qty:1,vendorId:p.vendorId,vendorSplitPct:p.vendorSplitPct,stock:p.stock}); }
+  else { POS_CART.push({productId:p.id,name:p.name,price:p.sellPrice,qty:1,vendorId:p.vendorId,splitType:p.splitType||'pct',vendorSplitPct:p.vendorSplitPct,vendorSplitNominal:p.vendorSplitNominal,stock:p.stock}); }
   rPosProducts(); rCart();
 }
 function adjustCartQty(productId, delta){
@@ -3520,11 +3544,16 @@ function checkoutPOS(){
   if(!POS_CART.length){ toast('⚠ Keranjang masih kosong'); return; }
 
   const items=POS_CART.map(c=>{
-    const vendorPayout=Math.round(c.price*c.qty*(c.vendorSplitPct/100));
+    const vendorPayout=c.splitType==='nom'
+      ? Math.min(c.price*c.qty, (c.vendorSplitNominal||0)*c.qty)
+      : Math.round(c.price*c.qty*((c.vendorSplitPct||0)/100));
     const businessRevenue=(c.price*c.qty)-vendorPayout;
     return {
       product_id:c.productId, product_name:c.name, vendor_id:c.vendorId,
-      qty:c.qty, price_at_sale:c.price, vendor_split_pct_at_sale:c.vendorSplitPct,
+      qty:c.qty, price_at_sale:c.price,
+      split_type_at_sale:c.splitType||'pct',
+      vendor_split_pct_at_sale:c.vendorSplitPct||0,
+      vendor_split_nominal_at_sale:c.vendorSplitNominal||0,
       vendor_payout_amount:vendorPayout, business_revenue_amount:businessRevenue,
     };
   });
@@ -3746,6 +3775,35 @@ function rRevChart(){
   const chartTitle=document.getElementById('rev-chart-total');
   if(chartTitle) chartTitle.textContent=total7>0?'Total 7 hari: Rp '+total7.toLocaleString('id-ID'):'Belum ada transaksi 7 hari terakhir';
 }
+function rMonthlyRevChart(){
+  const MONTHS_ID=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const today=new Date();
+  const last6=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(today.getFullYear(), today.getMonth()-i, 1);
+    const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const monthLabel=MONTHS_ID[d.getMonth()];
+    const isThisMonth=i===0;
+    const rev=TXS.filter(t=>t.date&&t.date.startsWith(ym)).reduce((s,t)=>s+(t.tot||0),0);
+    last6.push({ym, monthLabel, rev, isThisMonth});
+  }
+  const mx=Math.max(...last6.map(d=>d.rev), 1);
+  const minBarH=4, maxBarH=80;
+
+  document.getElementById('rev-chart-month').innerHTML=last6.map(d=>{
+    const barH=d.rev>0?Math.max(minBarH,Math.round(d.rev/mx*maxBarH)):minBarH;
+    const amtLabel=d.rev>0?('Rp '+(d.rev>=1000000?(d.rev/1000000).toFixed(1).replace('.0','')+'jt':(d.rev/1000).toFixed(0)+'k')):'—';
+    return`<div class="bcol">
+      <div class="bamt${d.rev===0?' zero':''}">${amtLabel}</div>
+      <div class="bar${d.isThisMonth?' today':''}" style="height:${barH}px" title="${d.ym}: Rp ${d.rev.toLocaleString('id-ID')}"></div>
+      <div class="blbl">${d.monthLabel}</div>
+    </div>`;
+  }).join('');
+
+  const total6=last6.reduce((s,d)=>s+d.rev,0);
+  const chartTitle2=document.getElementById('rev-chart-month-total');
+  if(chartTitle2) chartTitle2.textContent=total6>0?'Total 6 bulan: Rp '+total6.toLocaleString('id-ID'):'Belum ada transaksi 6 bulan terakhir';
+}
 function rAddonBreak(){
   // Hitung addon revenue dari TXS & BOOKINGS
   const addonTotals={};
@@ -3796,7 +3854,7 @@ function nav(page,btn){
   if(page==='calendar') rCal();
   if(page==='bookings') rAll(currentBkFilter);
   if(page==='customers') rCust();
-  if(page==='reports'){rTX();rRevChart();rAddonBreak();}
+  if(page==='reports'){rTX();rRevChart();rMonthlyRevChart();rAddonBreak();}
   if(page==='expenses') rExpenses();
   if(page==='trinkets'){ rVendors(); rProduk(); }
   if(page==='settings'){ rAddonList(); rPeakSeasons(); }
@@ -3842,7 +3900,7 @@ function navMore(page){
   const PAGE_SUBS={customers:'/ Database',reports:'/ Keuangan',expenses:'/ Catatan Biaya',trinkets:'/ Consignment',settings:'/ Harga & Layanan'};
   if(dt) dt.innerHTML=`${PAGE_TITLES[page]||page} <span>${PAGE_SUBS[page]||''}</span>`;
   if(page==='customers') rCust();
-  if(page==='reports'){rTX();rRevChart();rAddonBreak();}
+  if(page==='reports'){rTX();rRevChart();rMonthlyRevChart();rAddonBreak();}
   if(page==='expenses') rExpenses();
   if(page==='settings'){ rAddonList(); rPeakSeasons(); }
 }

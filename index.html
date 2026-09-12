@@ -3470,40 +3470,77 @@ function previewBulkImport(){
     const stock=parseInt(stockStr)||0;
     const threshold=parseInt(thresholdStr)||5;
 
+    // Cek duplikat — nama+vendor SAMA, ATAU link foto SAMA PERSIS dengan
+    // produk yang sudah ada (menangkap kasus nama lama vs nama baru untuk
+    // barang fisik yang sama)
+    let isDuplicate=false;
+    let duplicateReason='';
+    if(name && vendor){
+      const nameDup=TRINKET_PRODUCTS.some(p =>
+        p.vendorId===vendor.id && p.name.trim().toLowerCase()===name.toLowerCase()
+      );
+      if(nameDup){ isDuplicate=true; duplicateReason='nama+vendor sama'; }
+    }
+    if(!isDuplicate && imageLink && imageLink.trim()){
+      const linkDup=TRINKET_PRODUCTS.some(p => p.imageLink && p.imageLink.trim()===imageLink.trim());
+      if(linkDup){ isDuplicate=true; duplicateReason='link foto sama persis'; }
+    }
+    // Cek juga duplikat ANTAR BARIS di dalam paste-an yang sama (misal user tidak sengaja copy 2x)
+    // — ditangani terpisah di bawah setelah semua baris terbentuk
+
     return {
       name, category:category||'', vendorName:vendorName||'', vendorId:vendor?vendor.id:null,
       sellPrice:price, splitType, splitVal, stock, threshold, imageLink:imageLink||'',
-      valid: errors.length===0, errors,
+      valid: errors.length===0, errors, isDuplicate, duplicateReason,
     };
   });
 
-  const validCount=BULK_IMPORT_DRAFT.filter(r=>r.valid).length;
-  const invalidCount=BULK_IMPORT_DRAFT.length-validCount;
+  // Tandai duplikat SESAMA BARIS di paste-an ini juga — nama+vendor sama, ATAU link foto sama
+  const seenKey=new Set();
+  const seenLink=new Set();
+  BULK_IMPORT_DRAFT.forEach(r=>{
+    if(!r.valid || r.isDuplicate) return;
+    const key=(r.vendorId||'')+'|'+r.name.toLowerCase();
+    const link=r.imageLink.trim();
+    if(seenKey.has(key)){ r.isDuplicate=true; r.duplicateInPaste=true; r.duplicateReason='nama+vendor sama'; }
+    else if(link && seenLink.has(link)){ r.isDuplicate=true; r.duplicateInPaste=true; r.duplicateReason='link foto sama persis'; }
+    else { seenKey.add(key); if(link) seenLink.add(link); }
+  });
+
+  const importCount=BULK_IMPORT_DRAFT.filter(r=>r.valid && !r.isDuplicate).length;
+  const dupCount=BULK_IMPORT_DRAFT.filter(r=>r.valid && r.isDuplicate).length;
+  const invalidCount=BULK_IMPORT_DRAFT.filter(r=>!r.valid).length;
   document.getElementById('bi-preview-summary').innerHTML=
-    `<span style="color:var(--accent)">✓ ${validCount} produk siap diimport</span>` +
+    `<span style="color:var(--accent)">✓ ${importCount} produk baru siap diimport</span>` +
+    (dupCount>0?`  ·  <span style="color:var(--amber)">⏭ ${dupCount} sudah ada (dilewati)</span>`:'') +
     (invalidCount>0?`  ·  <span style="color:var(--red)">⚠ ${invalidCount} bermasalah (dilewati)</span>`:'');
 
-  document.getElementById('bi-preview-list').innerHTML=BULK_IMPORT_DRAFT.map(r=>`
-    <div style="padding:10px 12px;border-bottom:1px solid var(--border);${r.valid?'':'background:var(--red-l)'}">
+  document.getElementById('bi-preview-list').innerHTML=BULK_IMPORT_DRAFT.map(r=>{
+    const bg=!r.valid?'var(--red-l)':r.isDuplicate?'var(--amber-l)':'';
+    const rightLabel=!r.valid?'❌':r.isDuplicate?'⏭ Duplikat':rp(r.sellPrice);
+    let subLine;
+    if(!r.valid) subLine=`<div style="font-size:11px;color:var(--red);margin-top:2px">${r.errors.join(', ')}</div>`;
+    else if(r.isDuplicate) subLine=`<div style="font-size:11px;color:#a06800;margin-top:2px">${r.duplicateInPaste?'Duplikat dalam data yang kamu tempel':'Sudah terdaftar di sistem'} (${r.duplicateReason||'nama+vendor sama'})</div>`;
+    else subLine=`<div style="font-size:11px;color:var(--text3);margin-top:2px">${r.category||'Tanpa kategori'} · ${r.vendorName} · Split ${r.splitType==='nom'?rp(r.splitVal):r.splitVal+'%'} · Stok ${r.stock}</div>`;
+    return `<div style="padding:10px 12px;border-bottom:1px solid var(--border);${bg?'background:'+bg:''}">
       <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">
         <span>${r.name||'(tanpa nama)'}</span>
-        <span>${r.valid?rp(r.sellPrice):'❌'}</span>
+        <span>${rightLabel}</span>
       </div>
-      ${r.valid
-        ?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${r.category||'Tanpa kategori'} · ${r.vendorName} · Split ${r.splitType==='nom'?rp(r.splitVal):r.splitVal+'%'} · Stok ${r.stock}</div>`
-        :`<div style="font-size:11px;color:var(--red);margin-top:2px">${r.errors.join(', ')}</div>`}
-    </div>`).join('');
+      ${subLine}
+    </div>`;
+  }).join('');
 
   document.getElementById('bi-step-paste').style.display='none';
   document.getElementById('bi-step-preview').style.display='block';
   document.getElementById('bi-footer-paste').style.display='none';
   document.getElementById('bi-footer-preview').style.display='flex';
-  document.getElementById('bi-confirm-btn').disabled=validCount===0;
+  document.getElementById('bi-confirm-btn').disabled=importCount===0;
 }
 function confirmBulkImport(){
   if(SUBMIT_LOCK) return;
-  const validRows=BULK_IMPORT_DRAFT.filter(r=>r.valid);
-  if(!validRows.length){ toast('⚠ Tidak ada produk valid untuk diimport'); return; }
+  const validRows=BULK_IMPORT_DRAFT.filter(r=>r.valid && !r.isDuplicate);
+  if(!validRows.length){ toast('⚠ Tidak ada produk baru untuk diimport'); return; }
 
   SUBMIT_LOCK=true;
   showLoading('Mengimport '+validRows.length+' produk...');

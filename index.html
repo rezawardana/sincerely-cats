@@ -468,7 +468,10 @@ textarea{resize:vertical;min-height:60px}
     <div id="tk-sub-produk" class="tk-sub" style="display:none">
       <div class="ph" style="margin-bottom:10px">
         <div class="ph-sub" id="produk-sub">—</div>
-        <button class="btn btn-p" onclick="openProduk()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Tambah Produk</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-g" onclick="openBulkImport()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Import Massal</button>
+          <button class="btn btn-p" onclick="openProduk()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Tambah Produk</button>
+        </div>
       </div>
 
       <div class="card" style="margin-bottom:14px">
@@ -836,6 +839,38 @@ textarea{resize:vertical;min-height:60px}
     <div class="mf">
       <button class="btn btn-g" onclick="closeOv('pd-ov')">Batal</button>
       <button class="btn btn-p" onclick="saveProduk()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK IMPORT MODAL -->
+<div class="ov" id="bi-ov">
+  <div class="modal" style="max-width:600px">
+    <div class="mh"><div class="mt">Import Produk Massal</div><button class="mc2" onclick="closeOv('bi-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <!-- STEP 1: PASTE -->
+      <div id="bi-step-paste">
+        <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
+          <strong>Format kolom (pisah pakai TAB, urutan harus sama):</strong><br>
+          Nama | Kategori | Nama Vendor | Harga Jual | Tipe Split (pct/nom) | Nilai Split | Stok | Batas Stok | Link Foto<br><br>
+          <strong>Cara pakai:</strong> Siapkan kolom sesuai urutan di atas pada spreadsheet kamu sendiri → select semua baris data (tanpa header) → copy → paste di kotak bawah ini.<br>
+          <em style="color:var(--text3)">Link Foto & Batas Stok boleh dikosongkan.</em>
+        </div>
+        <textarea id="bi-paste-area" placeholder="Tempel data di sini (dari Google Sheets/Excel)..." style="width:100%;min-height:160px;font-family:monospace;font-size:12px;padding:10px;border:1.5px solid var(--border2);border-radius:8px"></textarea>
+      </div>
+      <!-- STEP 2: PREVIEW -->
+      <div id="bi-step-preview" style="display:none">
+        <div id="bi-preview-summary" style="margin-bottom:10px;font-size:13px;font-weight:600"></div>
+        <div id="bi-preview-list" style="max-height:320px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="mf" id="bi-footer-paste">
+      <button class="btn btn-g" onclick="closeOv('bi-ov')">Batal</button>
+      <button class="btn btn-p" onclick="previewBulkImport()">Lanjut — Cek Data</button>
+    </div>
+    <div class="mf" id="bi-footer-preview" style="display:none">
+      <button class="btn btn-g" onclick="backToBulkPaste()">← Kembali</button>
+      <button class="btn btn-p" id="bi-confirm-btn" onclick="confirmBulkImport()">Import Sekarang</button>
     </div>
   </div>
 </div>
@@ -3388,6 +3423,108 @@ function saveProduk(){
     } else { toast('⚠ Gagal: '+(res.error||'')); }
   }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
 }
+/* ===== IMPORT MASSAL PRODUK ===== */
+let BULK_IMPORT_DRAFT=[];
+function openBulkImport(){
+  if(!TRINKET_VENDORS.length){
+    toast('⚠ Tambah vendor dulu sebelum import produk');
+    return;
+  }
+  document.getElementById('bi-paste-area').value='';
+  document.getElementById('bi-step-paste').style.display='block';
+  document.getElementById('bi-step-preview').style.display='none';
+  document.getElementById('bi-footer-paste').style.display='flex';
+  document.getElementById('bi-footer-preview').style.display='none';
+  document.getElementById('bi-ov').classList.add('open');
+}
+function backToBulkPaste(){
+  document.getElementById('bi-step-paste').style.display='block';
+  document.getElementById('bi-step-preview').style.display='none';
+  document.getElementById('bi-footer-paste').style.display='flex';
+  document.getElementById('bi-footer-preview').style.display='none';
+}
+function previewBulkImport(){
+  const raw=document.getElementById('bi-paste-area').value.trim();
+  if(!raw){ toast('⚠ Belum ada data ditempel'); return; }
+
+  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  BULK_IMPORT_DRAFT=lines.map(line=>{
+    const cols=line.split('\t').map(c=>c.trim());
+    const [name,category,vendorName,priceStr,splitTypeStr,splitValStr,stockStr,thresholdStr,imageLink]=cols;
+    const errors=[];
+
+    if(!name) errors.push('Nama kosong');
+
+    const vendor=TRINKET_VENDORS.find(v=>v.name.toLowerCase()===((vendorName||'').toLowerCase()));
+    if(!vendor) errors.push('Vendor "'+(vendorName||'-')+'" tidak ditemukan');
+
+    const price=parseInt(priceStr)||0;
+    if(!price) errors.push('Harga tidak valid');
+
+    const splitType=(splitTypeStr||'').toLowerCase()==='nom'?'nom':(splitTypeStr||'').toLowerCase()==='pct'?'pct':null;
+    if(!splitType) errors.push('Tipe split harus "pct" atau "nom"');
+
+    const splitVal=parseFloat(splitValStr)||0;
+    if(!splitVal) errors.push('Nilai split tidak valid');
+
+    const stock=parseInt(stockStr)||0;
+    const threshold=parseInt(thresholdStr)||5;
+
+    return {
+      name, category:category||'', vendorName:vendorName||'', vendorId:vendor?vendor.id:null,
+      sellPrice:price, splitType, splitVal, stock, threshold, imageLink:imageLink||'',
+      valid: errors.length===0, errors,
+    };
+  });
+
+  const validCount=BULK_IMPORT_DRAFT.filter(r=>r.valid).length;
+  const invalidCount=BULK_IMPORT_DRAFT.length-validCount;
+  document.getElementById('bi-preview-summary').innerHTML=
+    `<span style="color:var(--accent)">✓ ${validCount} produk siap diimport</span>` +
+    (invalidCount>0?`  ·  <span style="color:var(--red)">⚠ ${invalidCount} bermasalah (dilewati)</span>`:'');
+
+  document.getElementById('bi-preview-list').innerHTML=BULK_IMPORT_DRAFT.map(r=>`
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border);${r.valid?'':'background:var(--red-l)'}">
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">
+        <span>${r.name||'(tanpa nama)'}</span>
+        <span>${r.valid?rp(r.sellPrice):'❌'}</span>
+      </div>
+      ${r.valid
+        ?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${r.category||'Tanpa kategori'} · ${r.vendorName} · Split ${r.splitType==='nom'?rp(r.splitVal):r.splitVal+'%'} · Stok ${r.stock}</div>`
+        :`<div style="font-size:11px;color:var(--red);margin-top:2px">${r.errors.join(', ')}</div>`}
+    </div>`).join('');
+
+  document.getElementById('bi-step-paste').style.display='none';
+  document.getElementById('bi-step-preview').style.display='block';
+  document.getElementById('bi-footer-paste').style.display='none';
+  document.getElementById('bi-footer-preview').style.display='flex';
+  document.getElementById('bi-confirm-btn').disabled=validCount===0;
+}
+function confirmBulkImport(){
+  if(SUBMIT_LOCK) return;
+  const validRows=BULK_IMPORT_DRAFT.filter(r=>r.valid);
+  if(!validRows.length){ toast('⚠ Tidak ada produk valid untuk diimport'); return; }
+
+  SUBMIT_LOCK=true;
+  showLoading('Mengimport '+validRows.length+' produk...');
+  const payloadProducts=validRows.map(r=>({
+    name:r.name, category:r.category, vendor_id:r.vendorId, sell_price:r.sellPrice,
+    split_type:r.splitType,
+    vendor_split_pct:r.splitType==='pct'?r.splitVal:0,
+    vendor_split_nominal:r.splitType==='nom'?r.splitVal:0,
+    stock:r.stock, low_stock_threshold:r.threshold, image_link:r.imageLink,
+  }));
+  apiPost({action:'saveTrinketProductsBulk', products:payloadProducts}).then(res=>{
+    hideLoading();
+    if(res.success){
+      res.products.forEach(p=>TRINKET_PRODUCTS.push(p));
+      closeOv('bi-ov');
+      rProduk();
+      toast('✓ '+res.products.length+' produk berhasil diimport');
+    } else { toast('⚠ Gagal: '+(res.error||'')); }
+  }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
+}
+
 let stockAdjustIdx=null;
 function openStockAdjust(idx){
   stockAdjustIdx=idx;

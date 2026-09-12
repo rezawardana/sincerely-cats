@@ -3542,8 +3542,6 @@ function confirmBulkImport(){
   const validRows=BULK_IMPORT_DRAFT.filter(r=>r.valid && !r.isDuplicate);
   if(!validRows.length){ toast('⚠ Tidak ada produk baru untuk diimport'); return; }
 
-  SUBMIT_LOCK=true;
-  showLoading('Mengimport '+validRows.length+' produk...');
   const payloadProducts=validRows.map(r=>({
     name:r.name, category:r.category, vendor_id:r.vendorId, sell_price:r.sellPrice,
     split_type:r.splitType,
@@ -3551,15 +3549,46 @@ function confirmBulkImport(){
     vendor_split_nominal:r.splitType==='nom'?r.splitVal:0,
     stock:r.stock, low_stock_threshold:r.threshold, image_link:r.imageLink,
   }));
-  apiPost({action:'saveTrinketProductsBulk', products:payloadProducts}).then(res=>{
-    hideLoading();
-    if(res.success){
-      res.products.forEach(p=>TRINKET_PRODUCTS.push(p));
+
+  // Kirim bertahap per 10 produk — supaya tidak kena batas panjang URL
+  // kalau jumlahnya banyak sekaligus (misal ratusan produk)
+  const CHUNK_SIZE=10;
+  const chunks=[];
+  for(let i=0;i<payloadProducts.length;i+=CHUNK_SIZE){
+    chunks.push(payloadProducts.slice(i,i+CHUNK_SIZE));
+  }
+
+  SUBMIT_LOCK=true;
+  let importedTotal=0;
+  let hadError=false;
+
+  function sendNextChunk(idx){
+    if(idx>=chunks.length){
+      hideLoading();
+      SUBMIT_LOCK=false;
       closeOv('bi-ov');
       rProduk();
-      toast('✓ '+res.products.length+' produk berhasil diimport');
-    } else { toast('⚠ Gagal: '+(res.error||'')); }
-  }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
+      if(importedTotal>0) toast('✓ '+importedTotal+' produk berhasil diimport'+(hadError?' (sebagian gagal, cek lagi)':''));
+      else toast('⚠ Import gagal, tidak ada produk tersimpan');
+      return;
+    }
+    showLoading('Mengimport produk... ('+Math.min((idx+1)*CHUNK_SIZE,payloadProducts.length)+'/'+payloadProducts.length+')');
+    apiPost({action:'saveTrinketProductsBulk', products:chunks[idx]}).then(res=>{
+      if(res.success){
+        res.products.forEach(p=>TRINKET_PRODUCTS.push(p));
+        importedTotal+=res.products.length;
+      } else {
+        hadError=true;
+        console.error('Bulk import chunk failed:', res.error);
+      }
+      sendNextChunk(idx+1);
+    }).catch(err=>{
+      hadError=true;
+      console.error('Bulk import chunk error:', err);
+      sendNextChunk(idx+1);
+    });
+  }
+  sendNextChunk(0);
 }
 
 let stockAdjustIdx=null;

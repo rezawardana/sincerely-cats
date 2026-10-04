@@ -84,6 +84,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .pos-card.out-of-stock{opacity:.45;cursor:not-allowed}
 .pos-card-img{width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:var(--surface2);display:block}
 .pos-card-icon{width:100%;aspect-ratio:1;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px}
+.pos-card-vendor{font-size:10px;color:var(--text3);margin-top:3px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pos-card-name{font-size:11.5px;font-weight:600;margin-top:6px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pos-card-price{font-size:11px;color:var(--accent);font-weight:700;margin-top:2px}
 .pos-card-stock{font-size:9.5px;color:var(--text3);margin-top:1px}
@@ -502,7 +503,10 @@ textarea{resize:vertical;min-height:60px}
 
     <!-- KASIR / POS SUB-PAGE -->
     <div id="tk-sub-kasir" class="tk-sub" style="display:none">
-      <input type="text" id="pos-search" placeholder="🔍 Cari produk..." oninput="rPosProducts()" style="width:100%;margin-bottom:10px">
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <input type="text" id="pos-search" placeholder="🔍 Cari nama produk atau vendor..." oninput="rPosProducts()" style="flex:1;min-width:160px">
+        <select id="pos-filter-vendor" onchange="rPosProducts()" style="min-width:140px"><option value="">Semua Vendor</option></select>
+      </div>
       <div class="ftabs" id="pos-category-tabs"></div>
 
       <div class="pos-layout">
@@ -3085,7 +3089,7 @@ function showTrinketSub(sub, btn){
   if(btn) btn.classList.add('active');
   if(sub==='vendor') rVendors();
   if(sub==='produk'){ rProduk(); rTrinketCategories(); }
-  if(sub==='kasir'){ rPosCategories(); rPosProducts(); rCart(); }
+  if(sub==='kasir'){ rPosCategories(); rPosVendorFilter(); rPosProducts(); rCart(); }
 }
 
 /* ===== VENDOR ===== */
@@ -3636,6 +3640,15 @@ function rPosCategories(){
   wrap.innerHTML=`<button class="ftab${POS_CATEGORY===''?' active':''}" onclick="setPosCategory('')">Semua</button>`+
     cats.map(c=>`<button class="ftab${POS_CATEGORY===c?' active':''}" onclick="setPosCategory('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
 }
+function rPosVendorFilter(){
+  const sel=document.getElementById('pos-filter-vendor');
+  if(!sel) return;
+  const cur=sel.value;
+  const usedIds=new Set(TRINKET_PRODUCTS.map(p=>p.vendorId));
+  const vendors=TRINKET_VENDORS.filter(v=>usedIds.has(v.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  sel.innerHTML='<option value="">Semua Vendor</option>'+vendors.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
+  if(cur && vendors.some(v=>v.id===cur)) sel.value=cur;
+}
 function setPosCategory(cat){
   POS_CATEGORY=cat;
   rPosCategories();
@@ -3645,10 +3658,13 @@ function rPosProducts(){
   const wrap=document.getElementById('pos-products');
   if(!wrap) return;
   const searchTerm=(document.getElementById('pos-search')?.value||'').toLowerCase().trim();
+  const vendorFilter=document.getElementById('pos-filter-vendor')?.value||'';
+  const vendorName=id=>{const v=TRINKET_VENDORS.find(x=>x.id===id);return v?v.name:'';};
   const filtered=TRINKET_PRODUCTS.filter(p=>{
     const matchCat = !POS_CATEGORY || (p.category||'Lainnya')===POS_CATEGORY;
-    const matchSearch = !searchTerm || p.name.toLowerCase().includes(searchTerm);
-    return matchCat && matchSearch;
+    const matchVendor = !vendorFilter || p.vendorId===vendorFilter;
+    const matchSearch = !searchTerm || p.name.toLowerCase().includes(searchTerm) || vendorName(p.vendorId).toLowerCase().includes(searchTerm);
+    return matchCat && matchVendor && matchSearch;
   });
   if(!filtered.length){
     wrap.innerHTML='<div class="es" style="grid-column:1/-1"><p>Tidak ada produk ditemukan</p></div>';
@@ -3665,6 +3681,7 @@ function rPosProducts(){
       ${qtyInCart>0?`<div class="pos-card-qty-badge">${qtyInCart}</div>`:''}
       ${imgHtml}
       <div class="pos-card-icon" style="display:${p.imageLink?'none':'flex'}">🏷️</div>
+      <div class="pos-card-vendor">${vendorName(p.vendorId)||'—'}</div>
       <div class="pos-card-name">${p.name}</div>
       <div class="pos-card-price">${rp(p.sellPrice)}</div>
       <div class="pos-card-stock">${outOfStock?'Stok habis':'Stok: '+p.stock}</div>
@@ -3720,7 +3737,7 @@ function rCart(){
     <div class="pos-cart-item">
       <div style="flex:1;min-width:0">
         <div class="pos-cart-item-name">${c.name}</div>
-        <div class="pos-cart-item-sub">${rp(c.price)}/pcs</div>
+        <div class="pos-cart-item-sub">${(TRINKET_VENDORS.find(v=>v.id===c.vendorId)||{}).name||'—'} · ${rp(c.price)}/pcs</div>
       </div>
       <div class="pos-cart-qty">
         <button onclick="adjustCartQty('${c.productId}',-1)">−</button>

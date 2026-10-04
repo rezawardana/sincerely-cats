@@ -885,6 +885,15 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<!-- BULK IMPORT RESULT MODAL -->
+<div class="ov" id="br-ov">
+  <div class="modal" style="max-width:600px">
+    <div class="mh"><div class="mt">Hasil Import</div><button class="mc2" onclick="closeOv('br-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb" id="br-body" style="max-height:60vh;overflow-y:auto"></div>
+    <div class="mf"><button class="btn btn-p" onclick="closeOv('br-ov')">Tutup</button></div>
+  </div>
+</div>
+
 <!-- STOCK ADJUST MODAL -->
 <div class="ov" id="sk-ov">
   <div class="modal">
@@ -3453,9 +3462,25 @@ function backToBulkPaste(){
   document.getElementById('bi-footer-paste').style.display='flex';
   document.getElementById('bi-footer-preview').style.display='none';
 }
+// Muat ulang daftar produk & vendor dari server, supaya data lokal sama dengan isi Sheets
+async function refreshTrinketDataFromServer(){
+  const [tpRes,tvRes]=await Promise.all([apiGet('getTrinketProducts'),apiGet('getTrinketVendors')]);
+  if(tpRes.success){ TRINKET_PRODUCTS.length=0; tpRes.data.forEach(p=>TRINKET_PRODUCTS.push(p)); }
+  if(tvRes.success){ TRINKET_VENDORS.length=0; tvRes.data.forEach(v=>TRINKET_VENDORS.push(v)); }
+  return !!(tpRes.success && tvRes.success);
+}
 function previewBulkImport(){
   const raw=document.getElementById('bi-paste-area').value.trim();
   if(!raw){ toast('⚠ Belum ada data ditempel'); return; }
+  showLoading('Mengecek data terbaru di database...');
+  refreshTrinketDataFromServer().then(ok=>{
+    hideLoading();
+    if(!ok) toast('⚠ Gagal memuat data terbaru, pengecekan duplikat mungkin kurang akurat');
+    doPreviewBulkImport();
+  }).catch(()=>{ hideLoading(); doPreviewBulkImport(); });
+}
+function doPreviewBulkImport(){
+  const raw=document.getElementById('bi-paste-area').value.trim();
 
   const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
   BULK_IMPORT_DRAFT=lines.map(line=>{
@@ -3547,6 +3572,51 @@ function previewBulkImport(){
   document.getElementById('bi-footer-preview').style.display='flex';
   document.getElementById('bi-confirm-btn').disabled=importCount===0;
 }
+// Kirim sekelompok produk; kalau gagal, pecah jadi dua dan coba lagi sampai tersisa 1 produk.
+// Dengan begitu satu produk bermasalah tidak menggagalkan produk lain di kelompok yang sama.
+async function sendBulkRows(rows, report, onProgress){
+  let errMsg='';
+  try{
+    const res=await apiPost({action:'saveTrinketProductsBulk', products:rows});
+    if(res && res.success){
+      const saved=res.products||[];
+      saved.forEach(p=>TRINKET_PRODUCTS.push(p));
+      report.saved+=saved.length;
+      if(res.skipped){
+        res.skipped.forEach(s=>report.skipped.push(s));
+      } else {
+        // Backend versi lama belum kirim alasan — tandai produk yang tidak ikut tersimpan
+        const savedNames=new Set(saved.map(p=>p.name));
+        rows.filter(r=>!savedNames.has(r.name)).forEach(r=>report.skipped.push({name:r.name,reason:'sudah ada di sistem'}));
+      }
+      onProgress(rows.length);
+      return;
+    }
+    errMsg=(res&&res.error)||'tidak ada respons dari server';
+  }catch(e){ errMsg=e.message||'error jaringan'; }
+
+  if(rows.length>1){
+    const mid=Math.ceil(rows.length/2);
+    await sendBulkRows(rows.slice(0,mid), report, onProgress);
+    await sendBulkRows(rows.slice(mid), report, onProgress);
+  } else {
+    report.failed.push({name:rows[0].name, reason:errMsg});
+    onProgress(1);
+  }
+}
+function showBulkImportReport(report){
+  const list=(items,max)=>items.slice(0,max).map(i=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><strong>${i.name}</strong><br><span style="color:var(--text3)">${i.reason}</span></div>`).join('')
+    +(items.length>max?`<div style="font-size:12px;color:var(--text3);padding-top:6px">...dan ${items.length-max} lainnya</div>`:'');
+  let html=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="flex:1;min-width:110px;background:var(--accent-l);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--accent)">${report.saved}</div><div style="font-size:11px;color:var(--text3)">Tersimpan baru</div></div>
+    <div style="flex:1;min-width:110px;background:var(--amber-l);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--amber)">${report.skipped.length}</div><div style="font-size:11px;color:var(--text3)">Dilewati</div></div>
+    <div style="flex:1;min-width:110px;background:var(--red-l);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--red)">${report.failed.length}</div><div style="font-size:11px;color:var(--text3)">Gagal</div></div>
+  </div>`;
+  if(report.failed.length) html+=`<div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:4px">Gagal diproses</div>${list(report.failed,40)}<div style="font-size:11px;color:var(--text3);margin:8px 0 14px">Produk yang gagal bisa diimport ulang — yang sudah tersimpan akan otomatis dilewati.</div>`;
+  if(report.skipped.length) html+=`<div style="font-size:12px;font-weight:700;color:#a06800;margin-bottom:4px">Dilewati (tidak diimport ulang)</div>${list(report.skipped,40)}`;
+  document.getElementById('br-body').innerHTML=html;
+  document.getElementById('br-ov').classList.add('open');
+}
 function confirmBulkImport(){
   if(SUBMIT_LOCK) return;
   const validRows=BULK_IMPORT_DRAFT.filter(r=>r.valid && !r.isDuplicate);
@@ -3560,45 +3630,31 @@ function confirmBulkImport(){
     stock:r.stock, low_stock_threshold:r.threshold, image_link:r.imageLink,
   }));
 
-  // Kirim bertahap per 10 produk — supaya tidak kena batas panjang URL
-  // kalau jumlahnya banyak sekaligus (misal ratusan produk)
-  const CHUNK_SIZE=10;
-  const chunks=[];
-  for(let i=0;i<payloadProducts.length;i+=CHUNK_SIZE){
-    chunks.push(payloadProducts.slice(i,i+CHUNK_SIZE));
-  }
-
+  // Kiriman awal 5 produk (URL lebih pendek dari 10); otomatis dipecah lagi kalau gagal
+  const CHUNK_SIZE=5;
+  const report={saved:0, skipped:[], failed:[]};
+  let processed=0;
   SUBMIT_LOCK=true;
-  let importedTotal=0;
-  let hadError=false;
 
-  function sendNextChunk(idx){
-    if(idx>=chunks.length){
+  (async()=>{
+    try{
+      for(let i=0;i<payloadProducts.length;i+=CHUNK_SIZE){
+        await sendBulkRows(payloadProducts.slice(i,i+CHUNK_SIZE), report, n=>{
+          processed+=n;
+          showLoading('Mengimport produk... ('+Math.min(processed,payloadProducts.length)+'/'+payloadProducts.length+')');
+        });
+      }
+      // Sinkronkan ulang dengan database supaya tampilan sama dengan isi Sheets
+      showLoading('Menyinkronkan data...');
+      await refreshTrinketDataFromServer().catch(()=>{});
+    } finally {
       hideLoading();
       SUBMIT_LOCK=false;
       closeOv('bi-ov');
       rProduk();
-      if(importedTotal>0) toast('✓ '+importedTotal+' produk berhasil diimport'+(hadError?' (sebagian gagal, cek lagi)':''));
-      else toast('⚠ Import gagal, tidak ada produk tersimpan');
-      return;
+      showBulkImportReport(report);
     }
-    showLoading('Mengimport produk... ('+Math.min((idx+1)*CHUNK_SIZE,payloadProducts.length)+'/'+payloadProducts.length+')');
-    apiPost({action:'saveTrinketProductsBulk', products:chunks[idx]}).then(res=>{
-      if(res.success){
-        res.products.forEach(p=>TRINKET_PRODUCTS.push(p));
-        importedTotal+=res.products.length;
-      } else {
-        hadError=true;
-        console.error('Bulk import chunk failed:', res.error);
-      }
-      sendNextChunk(idx+1);
-    }).catch(err=>{
-      hadError=true;
-      console.error('Bulk import chunk error:', err);
-      sendNextChunk(idx+1);
-    });
-  }
-  sendNextChunk(0);
+  })();
 }
 
 let stockAdjustIdx=null;

@@ -1071,6 +1071,25 @@ function syncSlots(){
    ============================================================ */
 const rp = n => 'Rp '+Math.round(n).toLocaleString('id-ID');
 // Hitung qty untuk add-on tipe "per_duration" — dibulatkan ke atas
+// Normalisasi nomor WA supaya "0812-3456", "62812 3456", "812 3456" dianggap sama
+function normWa(s){
+  let d=String(s||'').replace(/\D/g,'');
+  if(d.startsWith('62')) d=d.slice(2);
+  if(d.startsWith('0')) d=d.slice(1);
+  return d;
+}
+// Cari pelanggan untuk sebuah booking: nama + WA harus cocok.
+// Dua pelanggan bisa saja bernama sama, jadi nama saja tidak cukup.
+function findCustomerForBooking(b){
+  const wa=normWa(b.wa);
+  const sameName=CUSTS.filter(x=>x.name===b.owner);
+  const exact=sameName.find(x=>normWa(x.wa)===wa);
+  if(exact) return exact;
+  const byWa=wa?CUSTS.filter(x=>normWa(x.wa)===wa):[];
+  if(byWa.length===1) return byWa[0];
+  // Nama unik → aman dipakai; nama ganda tanpa WA cocok → jangan menebak
+  return sameName.length===1?sameName[0]:null;
+}
 function calcDurationQty(nights, durationDays){
   const d=durationDays||7;
   return Math.max(1, Math.ceil(nights/d));
@@ -1456,7 +1475,9 @@ function editBooking(bkId){
   const ownerSel = document.getElementById('b-owner');
   ownerSel.innerHTML = '<option value="">-- Pilih Pelanggan --</option>'+
     CUSTS.map(c=>`<option value="${c.name}" data-wa="${c.wa}">${c.name} (${c.wa})</option>`).join('');
-  ownerSel.value = b.owner;
+  const ownerCust = findCustomerForBooking(b);
+  const ownerOptIdx = ownerCust ? Array.from(ownerSel.options).findIndex(o=>o.value===ownerCust.name && o.dataset.wa===String(ownerCust.wa)) : -1;
+  if(ownerOptIdx>=0) ownerSel.selectedIndex = ownerOptIdx; else ownerSel.value = b.owner;
   document.getElementById('b-wa').value = b.wa;
 
   // Fill dates
@@ -2215,7 +2236,7 @@ function buildInvoiceHTML(b, opts={}){
   const sisaBayar = Math.max(0, grandTotal - dpAmt);
 
   // Cust alamat
-  const cust = CUSTS.find(x=>x.name===b.owner);
+  const cust = findCustomerForBooking(b);
   const alamat = cust?.alamat||'';
 
   // Table rows
@@ -2744,12 +2765,13 @@ function saveCust(){
   });
   const data={name,wa:document.getElementById('c-wa').value,alamat:document.getElementById('c-alamat').value,notes:document.getElementById('c-notes').value,cats,v:0,sp:0,ls:'—'};
   const apiAction = editCustIdx!==null ? 'updateCustomer' : 'saveCustomer';
-  if(editCustIdx!==null){data.v=CUSTS[editCustIdx].v;data.sp=CUSTS[editCustIdx].sp;data.ls=CUSTS[editCustIdx].ls;}
+  if(editCustIdx!==null){data.v=CUSTS[editCustIdx].v;data.sp=CUSTS[editCustIdx].sp;data.ls=CUSTS[editCustIdx].ls;data.id=CUSTS[editCustIdx].id;}
   SUBMIT_LOCK=true;
   setSaveBtnBusy('cu-ov', true);
   showLoading('Menyimpan data pelanggan...');
   apiPost({
     action: apiAction,
+    id: data.id,
     name: data.name,
     wa: data.wa,
     alamat: data.alamat,
@@ -2762,7 +2784,7 @@ function saveCust(){
     hideLoading();
     if(res.success){
       if(editCustIdx!==null){ CUSTS[editCustIdx]=data; toast('✓ Data '+name+' diperbarui'); }
-      else { CUSTS.push(data); toast('✓ '+name+' ditambahkan'); }
+      else { data.id=res.customer_id; CUSTS.push(data); toast('✓ '+name+' ditambahkan'); }
       closeOv('cu-ov'); rCust();
     } else { toast('⚠ Gagal: '+(res.error||'unknown')); }
   }).catch(err=>{ hideLoading(); console.error(err); toast('⚠ Error: '+(err.message||'Gagal terhubung ke server')); })

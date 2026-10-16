@@ -190,6 +190,15 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
 .bamt.zero{color:var(--text3);font-weight:400}
 .es{text-align:center;padding:28px 20px;color:var(--text3)}
 .es p{font-size:13px}
+.searchbar{position:relative;margin-bottom:10px}
+.searchbar input{padding-left:36px;padding-right:34px}
+.searchbar .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text3);pointer-events:none}
+.searchbar .sx{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:none;background:transparent;color:var(--text3);font-size:18px;line-height:1;cursor:pointer;display:none}
+.searchbar .sx.show{display:block}
+.srch-info{font-size:11px;color:var(--text3);margin:-4px 0 10px}
+.av-bar{height:8px;border-radius:4px;background:var(--border);overflow:hidden;flex:1}
+.av-bar>i{display:block;height:100%;background:var(--accent)}
+.av-bar.full>i{background:#c0392b}
 .ftabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
 .ftabs::-webkit-scrollbar{display:none}
 .ftab{flex-shrink:0;font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent}
@@ -385,8 +394,17 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
   <div class="page" id="page-bookings">
     <div class="ph">
       <div><div class="ph-title">Booking</div><div class="ph-sub">1 booking = 1 pelanggan, bisa banyak kucing</div></div>
-      <button class="btn btn-p" onclick="openBooking()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Baru</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-g" onclick="openAvail()" title="Cek ketersediaan unit add-on (mis. CCTV) per tanggal">🎥 Cek CCTV</button>
+        <button class="btn btn-p" onclick="openBooking()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Baru</button>
+      </div>
     </div>
+    <div class="searchbar">
+      <svg class="si" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="bk-search" placeholder="Cari nama pemilik, kucing, no. WA, atau ID booking…" oninput="onBkSearch()" autocomplete="off">
+      <button class="sx" id="bk-search-x" onclick="clearBkSearch()" aria-label="Hapus pencarian">×</button>
+    </div>
+    <div class="srch-info" id="bk-search-info" style="display:none"></div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterB('all',this)">Aktif</button>
       <button class="ftab" onclick="filterB('checkin',this)">Check-in</button>
@@ -403,6 +421,11 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
     <div class="ph">
       <div><div class="ph-title">Pelanggan</div><div class="ph-sub" id="cust-sub">—</div></div>
       <button class="btn btn-p" onclick="openCust()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Tambah</button>
+    </div>
+    <div class="searchbar">
+      <svg class="si" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="cust-search" placeholder="Cari nama pemilik, kucing, no. WA, atau alamat…" oninput="onCustSearch()" autocomplete="off">
+      <button class="sx" id="cust-search-x" onclick="clearCustSearch()" aria-label="Hapus pencarian">×</button>
     </div>
     <div class="card"><div id="cust-list"></div></div>
   </div>
@@ -614,6 +637,7 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
               </select>
             </div>
             <div class="fgr" id="an-duration-wrap" style="display:none"><label>Durasi (hari)</label><input type="number" id="an-duration" placeholder="cth. 7"></div>
+            <div class="fgr"><label>Jumlah Unit Tersedia (opsional)</label><input type="number" id="an-stock" placeholder="cth. 3 untuk 3 CCTV — kosongkan jika tidak terbatas"></div>
           </div>
           <button class="btn btn-p btn-full" style="margin-top:12px" onclick="addAddon()">Tambah Item</button>
         </div>
@@ -746,6 +770,20 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
 </div>
 
 <!-- CUSTOMER MODAL -->
+<div class="ov" id="av-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt">🎥 Cek Ketersediaan Add-on</div><button class="mc2" onclick="closeOv('av-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fgr full"><label>Add-on</label><select id="av-addon" onchange="rAvail()"></select></div>
+        <div class="fgr"><label>Check-in</label><input type="date" id="av-ci" oninput="rAvail()"></div>
+        <div class="fgr"><label>Check-out</label><input type="date" id="av-co" oninput="rAvail()"></div>
+      </div>
+      <div id="av-result" style="margin-top:14px"></div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeOv('av-ov')">Tutup</button></div>
+  </div>
+</div>
 <div class="ov" id="cu-ov">
   <div class="modal">
     <div class="mh"><div class="mt" id="cu-title">Tambah Pelanggan</div><button class="mc2" onclick="closeOv('cu-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -1360,9 +1398,40 @@ function bkCard(b){
   </div>`;
 }
 
+function normPhoneKey(v){ return String(v||'').replace(/\D/g,'').replace(/^(62|0)/,''); }
+function bkMatchesQuery(b,q){
+  const ql=q.toLowerCase().trim();
+  if(!ql) return true;
+  const qd=normPhoneKey(ql);
+  if(String(b.id||'').toLowerCase().includes(ql)) return true;
+  if(String(b.owner||'').toLowerCase().includes(ql)) return true;
+  if(qd.length>=3 && normPhoneKey(b.wa).includes(qd)) return true;
+  return (b.cats||[]).some(c=>String(c.name||'').toLowerCase().includes(ql)||String(c.breed||'').toLowerCase().includes(ql));
+}
+function getBkQuery(){ const el=document.getElementById('bk-search'); return el?el.value.trim():''; }
+function onBkSearch(){
+  const x=document.getElementById('bk-search-x');
+  if(x) x.classList.toggle('show',!!getBkQuery());
+  rAll(currentBkFilter);
+}
+function clearBkSearch(){
+  const el=document.getElementById('bk-search'); if(el) el.value='';
+  onBkSearch();
+}
 function rAll(f){
   let list=[...BOOKINGS];
   const today=todayStr();
+  const q=getBkQuery();
+  const info=document.getElementById('bk-search-info');
+  if(q){
+    // Saat mencari: cari di SEMUA status (aktif, selesai, dibatalkan), terbaru di atas
+    list=list.filter(b=>bkMatchesQuery(b,q)).sort((a,b)=>String(b.ci).localeCompare(String(a.ci)));
+    if(info){ info.style.display='block'; info.textContent=list.length+' hasil untuk “'+q+'” (semua status)'; }
+    const html=list.map(b=>bkCard(b)).join('');
+    document.getElementById('all-list').innerHTML=html||'<div class="es"><p>Tidak ada booking yang cocok dengan “'+q.replace(/</g,'&lt;')+'”</p></div>';
+    return;
+  }
+  if(info) info.style.display='none';
   if(f==='checkin') list=list.filter(b=>b.status==='checkin'&&b.ci===today);
   else if(f==='checkout') list=list.filter(b=>b.status==='occupied'&&b.co===today);
   else if(f==='active') list=list.filter(b=>b.status==='occupied');
@@ -1562,6 +1631,7 @@ function addCatBookingRow(prefillName='', prefillBreed='', prefillSlotId=null){
           const priceLabel=isDuration?rp(a.price)+'/'+(a.durationDays||7)+'hr':rp(a.price)+'/pmbr';
           return `<div class="aci" id="cbaci-${id}-${a.id}" onclick="cbRowClick(event,'${id}','${a.id}')"><input type="checkbox" id="cbchk-${id}-${a.id}"><div class="cb-check"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="acin">${a.name}</div><div class="acip">${priceLabel}</div>${qtyEl}</div>`;
         }).join('')}</div>
+        <div class="cbav" id="cbav-${id}" style="font-size:11px;margin-top:6px;display:none"></div>
         <div style="font-size:11px;color:var(--text3);margin-top:6px">Estimasi bisa disesuaikan lagi saat checkout sesuai pemakaian aktual. Add-on "otomatis" dihitung dari lama menginap.</div>
       </div>
       <div class="fgr full">
@@ -1631,6 +1701,7 @@ function syncCbSel(rowId, aid){
 function calcAllCats(){
   const ci=document.getElementById('b-ci').value;
   const co=document.getElementById('b-co').value;
+  try{ refreshAddonAvailNotes(); }catch(e){}
   if(!ci||!co){document.getElementById('pbox').style.display='none';return;}
   const n=nights(ci,co);
   if(n<=0){document.getElementById('pbox').style.display='none';return;}
@@ -1766,6 +1837,15 @@ function saveBk(){
   if(!valid||!cats.length){toast('⚠ Isi nama kucing & slot untuk setiap kucing');return;}
   const usedSlots=cats.map(c=>c.slotId);
   if(new Set(usedSlots).size!==usedSlots.length){toast('⚠ Slot tidak boleh sama');return;}
+
+  // Validasi unit add-on terbatas (mis. CCTV): jangan lewat dari jumlah unit yang dimiliki
+  {
+    const over=findAddonOverbook(ci, co, editingBkId, cats);
+    if(over){
+      toast('⚠ '+over.name+' tidak cukup pada '+over.date+': dibutuhkan '+over.need+' unit, tersedia '+over.free+' dari '+over.stock+'. Kurangi/lepas '+over.name+' atau ubah tanggal.');
+      return;
+    }
+  }
 
   // Validasi akhir: pastikan semua slot benar-benar available untuk rentang tanggal ini
   const trulyAvailable=getAvailableSlotsForDates(ci, co, editingBkId).map(s=>s.id);
@@ -2701,14 +2781,42 @@ function finalizeCO(){
    CUSTOMERS
    ============================================================ */
 let editCustIdx=null, catRowCt=0;
+function getCustQuery(){ const el=document.getElementById('cust-search'); return el?el.value.trim():''; }
+function onCustSearch(){
+  const x=document.getElementById('cust-search-x');
+  if(x) x.classList.toggle('show',!!getCustQuery());
+  rCust();
+}
+function clearCustSearch(){
+  const el=document.getElementById('cust-search'); if(el) el.value='';
+  onCustSearch();
+}
+function custMatchesQuery(c,q){
+  const ql=q.toLowerCase().trim();
+  if(!ql) return true;
+  const qd=normPhoneKey(ql);
+  if(String(c.name||'').toLowerCase().includes(ql)) return true;
+  if(String(c.alamat||'').toLowerCase().includes(ql)) return true;
+  if(qd.length>=3 && normPhoneKey(c.wa).includes(qd)) return true;
+  return (c.cats||[]).some(k=>String(k.name||'').toLowerCase().includes(ql)||String(k.breed||'').toLowerCase().includes(ql));
+}
 function rCust(){
-  document.getElementById('cust-sub').textContent=CUSTS.length+' pelanggan terdaftar';
+  const q=getCustQuery();
   if(!CUSTS.length){
     document.getElementById('cust-list').innerHTML='<div class="es"><p>Belum ada pelanggan. Tap Tambah untuk menambahkan.</p></div>';
     document.getElementById('cust-sub').textContent='0 pelanggan terdaftar';
     return;
   }
-  document.getElementById('cust-list').innerHTML=CUSTS.map((c,i)=>{
+  // Simpan index asli supaya tombol Edit tetap membuka pelanggan yang benar saat hasil difilter
+  const rows=CUSTS.map((c,i)=>({c,i})).filter(x=>!q||custMatchesQuery(x.c,q));
+  document.getElementById('cust-sub').textContent=q
+    ? rows.length+' dari '+CUSTS.length+' pelanggan cocok'
+    : CUSTS.length+' pelanggan terdaftar';
+  if(!rows.length){
+    document.getElementById('cust-list').innerHTML='<div class="es"><p>Tidak ada pelanggan yang cocok dengan “'+q.replace(/</g,'&lt;')+'”</p></div>';
+    return;
+  }
+  document.getElementById('cust-list').innerHTML=rows.map(({c,i})=>{
     const ini=c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     return`<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
       <div class="cavatar">${ini}</div>
@@ -2871,8 +2979,9 @@ function rAddonList(){
     const priceLabel=a.priceType==='per_duration'
       ?`${rp(a.price)} / ${a.durationDays||7} hari (otomatis)`
       :`${rp(a.price)} / pemberian`;
+    const stockLabel=a.stockLimit>0?` · ${a.stockLimit} unit`:'';
     return `<div class="aitem" id="ai-${a.id}">
-      <div class="cqname"><div class="ainame">${a.name}</div><div class="aiprice">${priceLabel}</div></div>
+      <div class="cqname"><div class="ainame">${a.name}</div><div class="aiprice">${priceLabel}${stockLabel}</div></div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="startEdit('${a.id}')">Edit</button>
         <button class="btn btn-d" style="padding:6px 10px;font-size:12px" onclick="delAddon('${a.id}')">Hapus</button>
@@ -2900,6 +3009,10 @@ function startEdit(id){
         </select>
         <input type="number" id="edur-${id}" value="${a.durationDays||''}" placeholder="hari" style="width:70px;font-size:12px;display:${isDuration?'block':'none'}">
       </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <label style="font-size:11px;color:var(--text3);flex:1">Jumlah unit tersedia (kosong = tidak terbatas)</label>
+        <input type="number" id="estock-${id}" value="${a.stockLimit||''}" placeholder="unit" style="width:80px;font-size:12px">
+      </div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
         <button class="btn btn-p" style="padding:6px 10px;font-size:12px" onclick="saveEdit('${id}')">Simpan</button>
         <button class="btn btn-g" style="padding:6px 10px;font-size:12px" onclick="rAddonList()">Batal</button>
@@ -2916,10 +3029,11 @@ function saveEdit(id){
   const durationDays=priceType==='per_duration'?(parseInt(document.getElementById('edur-'+id).value)||7):0;
   if(!name||!price){toast('⚠ Wajib diisi');return;}
   if(priceType==='per_duration'&&!durationDays){toast('⚠ Isi durasi hari');return;}
-  apiPost({action:'updateAddon',id,name,price,price_type:priceType,duration_days:durationDays}).then(res=>{
+  const stockLimit=Math.max(0,parseInt(document.getElementById('estock-'+id).value)||0);
+  apiPost({action:'updateAddon',id,name,price,price_type:priceType,duration_days:durationDays,stock_limit:stockLimit}).then(res=>{
     if(res.success){
       const a=ADDONS.find(x=>x.id===id);
-      a.name=name;a.price=price;a.priceType=priceType;a.durationDays=durationDays;
+      a.name=name;a.price=price;a.priceType=priceType;a.durationDays=durationDays;a.stockLimit=stockLimit;
       rAddonList();toast('✓ Item diupdate');
     } else { toast('⚠ Gagal update'); }
   });
@@ -2930,9 +3044,11 @@ function addAddon(){
   const durationDays=priceType==='per_duration'?(parseInt(document.getElementById('an-duration').value)||7):0;
   if(!name||!price){toast('⚠ Nama dan harga wajib');return;}
   if(priceType==='per_duration'&&!durationDays){toast('⚠ Isi durasi hari');return;}
-  apiPost({action:'saveAddon',name,price,price_type:priceType,duration_days:durationDays}).then(res=>{
+  const stockLimit=Math.max(0,parseInt(document.getElementById('an-stock').value)||0);
+  apiPost({action:'saveAddon',name,price,price_type:priceType,duration_days:durationDays,stock_limit:stockLimit}).then(res=>{
     if(res.success){
-      ADDONS.push({id:res.addon_id,name,price,priceType,durationDays});
+      ADDONS.push({id:res.addon_id,name,price,priceType,durationDays,stockLimit});
+      document.getElementById('an-stock').value='';
       document.getElementById('an-name').value='';document.getElementById('an-price').value='';
       document.getElementById('an-duration').value='';document.getElementById('an-price-type').value='per_serving';
       toggleAnDuration();
@@ -4207,6 +4323,111 @@ function nav(page,btn){
 }
 function navTo(page){ nav(page, document.getElementById('bn-'+page)); }
 let currentBkFilter='all';
+
+/* ============================================================
+   KETERSEDIAAN ADD-ON TERBATAS (mis. CCTV)
+   Aturan: 1 unit dipakai oleh 1 kucing selama semua malam menginap
+   [check-in, check-out). Booking selesai/dibatalkan tidak dihitung.
+   ============================================================ */
+function limitedAddons(){ return ADDONS.filter(a=>a.stockLimit>0); }
+function nightsList(ci,co){
+  const out=[]; if(!ci||!co) return out;
+  const n=nights(ci,co);
+  for(let i=0;i<n;i++){ const d=new Date(ci); d.setDate(d.getDate()+i); out.push(todayStr(d)); }
+  return out;
+}
+// unit add-on yang terpakai pada malam tertentu oleh booking yang sudah tersimpan
+function addonUsedOnNight(aid, ds, excludeBkId){
+  let used=0;
+  BOOKINGS.forEach(b=>{
+    if(b.status==='completed'||b.status==='cancelled') return;
+    if(excludeBkId && b.id===excludeBkId) return;
+    if(!b.ci||!b.co) return;
+    if(!(ds>=b.ci && ds<b.co)) return;
+    (b.cats||[]).forEach(c=>{ if((c.sa||[]).includes(aid)) used++; });
+  });
+  return used;
+}
+// ringkasan per malam untuk rentang tanggal
+function addonAvailability(aid, ci, co, excludeBkId, extraUnits){
+  const a=ADDONS.find(x=>x.id===aid); if(!a) return null;
+  const stock=a.stockLimit||0;
+  const days=nightsList(ci,co).map(ds=>{
+    const used=addonUsedOnNight(aid,ds,excludeBkId);
+    return {date:ds,used,free:stock-used-(extraUnits||0)};
+  });
+  const minFree=days.length?Math.min(...days.map(d=>d.free)):stock;
+  return {addon:a,stock,days,minFree};
+}
+// untuk draft booking yang sedang diisi: cari malam pertama yang kelebihan
+function findAddonOverbook(ci, co, excludeBkId, cats){
+  for(const a of limitedAddons()){
+    const draft=cats.filter(c=>(c.sa||[]).includes(a.id)).length;
+    if(!draft) continue;
+    const av=addonAvailability(a.id,ci,co,excludeBkId,draft);
+    if(av && av.minFree<0){
+      const worst=av.days.find(d=>d.free<0);
+      return {name:a.name,date:worst.date,need:draft,free:Math.max(0,a.stockLimit-worst.used),stock:a.stockLimit};
+    }
+  }
+  return null;
+}
+function refreshAddonAvailNotes(){
+  const ci=document.getElementById('b-ci')?.value, co=document.getElementById('b-co')?.value;
+  const lim=limitedAddons();
+  const rows=[...document.querySelectorAll('[id^="cbrow-"]')];
+  rows.forEach(r=>{
+    const id=r.id.replace('cbrow-','');
+    const el=document.getElementById('cbav-'+id);
+    if(!el) return;
+    if(!lim.length||!ci||!co||nights(ci,co)<=0){ el.style.display='none'; el.innerHTML=''; return; }
+    const parts=lim.map(a=>{
+      const draft=rows.filter(rr=>document.getElementById('cbchk-'+rr.id.replace('cbrow-','')+'-'+a.id)?.checked).length;
+      const av=addonAvailability(a.id,ci,co,(typeof editingBkId!=='undefined'?editingBkId:null),draft);
+      if(!av) return '';
+      const baseFree=av.minFree+draft; // sisa unit sebelum draft ini
+      if(av.minFree<0) return `<span style="color:#c0392b;font-weight:600">🎥 ${a.name}: kurang ${-av.minFree} unit — hanya ${Math.max(0,baseFree)} dari ${av.stock} unit tersedia di tanggal ini</span>`;
+      return `<span style="color:var(--text3)">🎥 ${a.name}: ${baseFree} dari ${av.stock} unit tersedia di tanggal ini${draft?` (dipilih ${draft})`:''}</span>`;
+    });
+    el.innerHTML=parts.join('<br>');
+    el.style.display='block';
+  });
+}
+function openAvail(){
+  const lim=limitedAddons();
+  if(!lim.length){ toast('Belum ada add-on dengan jumlah unit. Isi “Jumlah Unit” di Pengaturan → Add-on (mis. CCTV = 3).'); return; }
+  const sel=document.getElementById('av-addon');
+  sel.innerHTML=lim.map(a=>`<option value="${a.id}">${a.name} (${a.stockLimit} unit)</option>`).join('');
+  const t=todayStr();
+  if(!document.getElementById('av-ci').value) document.getElementById('av-ci').value=t;
+  if(!document.getElementById('av-co').value){ const d=new Date(); d.setDate(d.getDate()+7); document.getElementById('av-co').value=todayStr(d); }
+  document.getElementById('av-ov').classList.add('open');
+  rAvail();
+}
+function rAvail(){
+  const aid=document.getElementById('av-addon').value;
+  const ci=document.getElementById('av-ci').value, co=document.getElementById('av-co').value;
+  const box=document.getElementById('av-result');
+  if(!aid||!ci||!co||nights(ci,co)<=0){ box.innerHTML='<div class="es"><p>Pilih tanggal check-in dan check-out</p></div>'; return; }
+  const av=addonAvailability(aid,ci,co,null,0);
+  const a=av.addon;
+  const ok=av.minFree>0;
+  const head=ok
+    ? `<div style="background:#e8f5ee;color:#1d6a4a;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600">✅ Tersedia — minimal ${av.minFree} dari ${av.stock} unit ${a.name} kosong sepanjang ${av.days.length} malam</div>`
+    : `<div style="background:#fdecea;color:#c0392b;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600">❌ Penuh di sebagian malam — ${a.name} tidak tersedia pada: ${av.days.filter(d=>d.free<=0).map(d=>d.date).slice(0,4).join(', ')}${av.days.filter(d=>d.free<=0).length>4?' …':''}</div>`;
+  const rowsHtml=av.days.map(d=>{
+    const pct=Math.min(100,Math.round(d.used/av.stock*100));
+    const full=d.free<=0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <div style="width:84px;color:var(--text2)">${d.date}</div>
+      <div class="av-bar${full?' full':''}"><i style="width:${pct}%"></i></div>
+      <div style="width:86px;text-align:right;font-weight:600;color:${full?'#c0392b':'var(--text)'}">${d.used}/${av.stock} dipakai</div>
+    </div>`;
+  }).join('');
+  box.innerHTML=head+`<div style="margin-top:10px">${rowsHtml}</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Hitungan: 1 unit dipakai 1 kucing selama menginap. Booking selesai &amp; dibatalkan tidak dihitung.</div>`;
+}
+
 function filterB(f,btn){
   currentBkFilter=f;
   rAll(f);

@@ -190,6 +190,8 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
 .bamt.zero{color:var(--text3);font-weight:400}
 .es{text-align:center;padding:28px 20px;color:var(--text3)}
 .es p{font-size:13px}
+.cav{font-size:9px;font-weight:700;line-height:1;margin-top:2px;white-space:nowrap;letter-spacing:-.2px}
+.cav.ok{color:var(--accent)}.cav.low{color:#b7791f}.cav.zero{color:#c0392b}
 .searchbar{position:relative;margin-bottom:10px}
 .searchbar input{padding-left:36px;padding-right:34px}
 .searchbar .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text3);pointer-events:none}
@@ -386,6 +388,7 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
         <div class="cli"><div class="clbox" style="background:#fdf6e3;border-color:#f5dfa0"></div>45–83% Hampir Penuh</div>
         <div class="cli"><div class="clbox" style="background:var(--red-l);border-color:#f5c6c4"></div>84–100% Penuh</div>
       </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">🎥<b>2</b> = sisa unit CCTV yang masih bebas pada malam itu (hijau: ≥2, kuning: 1, merah: habis).</div>
     </div></div>
     <div class="card"><div class="ch"><span class="ct">Minggu Ini</span></div><div id="cal-upcoming" style="padding:8px 0"></div></div>
   </div>
@@ -2903,6 +2906,16 @@ function saveCust(){
    CALENDAR
    ============================================================ */
 let CY=2026,CM=6;
+function addonAvailChip(ds){
+  const lim=limitedAddons();
+  if(!lim.length) return '';
+  return lim.map(a=>{
+    const free=a.stockLimit-addonUsedOnNight(a.id,ds,null);
+    const cls=free<=0?'zero':free===1?'low':'ok';
+    const ic=/cctv/i.test(a.name)?'🎥':a.name.slice(0,3);
+    return `<div class="cav ${cls}">${ic}${Math.max(0,free)}</div>`;
+  }).join('');
+}
 function rCal(){
   const MN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   document.getElementById('cal-title').textContent=MN[CM]+' '+CY;
@@ -2923,6 +2936,7 @@ function rCal(){
       <div class="cdate">${d}</div>
       <div class="cocc" style="color:${occ_c}">${pct}%</div>
       <div class="coccsub">${oc}/18</div>
+      ${addonAvailChip(ds)}
     </div>`;
   }
   document.getElementById('cal-grid').innerHTML=cells;
@@ -2943,6 +2957,21 @@ function openDay(ds,d){
     <div style="background:var(--red-l);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--red)">${totalCats}</div><div style="font-size:11px;color:var(--text3)">Kucing Menginap</div></div>
     <div style="background:var(--accent-l);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--accent)">${18-totalCats}</div><div style="font-size:11px;color:var(--text3)">Slot Tersedia</div></div>
   </div>`;
+  limitedAddons().forEach(a=>{
+    const users=[];
+    BOOKINGS.forEach(b=>{
+      if(b.status==='completed'||b.status==='cancelled'||!b.ci||!b.co) return;
+      if(!(ds>=b.ci&&ds<b.co)) return;
+      const cn=(b.cats||[]).filter(c=>(c.sa||[]).includes(a.id)).map(c=>c.name);
+      if(cn.length) users.push(b.owner+' ('+cn.join(', ')+')');
+    });
+    const used=addonUsedOnNight(a.id,ds,null);
+    const free=Math.max(0,a.stockLimit-used);
+    html+=`<div style="background:${free===0?'#fdecea':'#eef6f1'};border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px">
+      <div style="font-weight:700;color:${free===0?'#c0392b':'#1d6a4a'}">${/cctv/i.test(a.name)?'🎥 ':''}${a.name}: ${free} dari ${a.stockLimit} unit tersedia</div>
+      ${users.length?`<div style="color:var(--text2);margin-top:4px">Dipakai: ${users.join('; ')}</div>`:''}
+    </div>`;
+  });
   if(bks.length){
     bks.forEach(b=>{html+=`<div class="dr"><span>${b.owner}</span><span style="color:var(--text2)">${b.cats.map(c=>c.name).join(', ')} · ${b.cats.length} kucing</span></div>`;});
   } else {

@@ -528,6 +528,14 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
           <option value="">Semua Vendor</option>
         </select>
       </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap" id="produk-bulkbar">
+        <button class="btn btn-g" id="produk-selmode-btn" style="font-size:12px;padding:7px 12px" onclick="toggleProdukSelectMode()">☑ Pilih untuk Hapus</button>
+        <span id="produk-selmode-tools" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-g" style="font-size:12px;padding:7px 12px" onclick="produkSelectAllFiltered()">Pilih semua hasil</button>
+          <button class="btn btn-g" style="font-size:12px;padding:7px 12px" onclick="produkClearSel()">Kosongkan</button>
+          <button class="btn btn-d" id="produk-del-sel-btn" style="font-size:12px;padding:7px 12px" onclick="deleteSelectedProduk()">🗑 Hapus (0)</button>
+        </span>
+      </div>
       <div class="card"><div id="produk-list"></div></div>
     </div>
 
@@ -3296,7 +3304,10 @@ function rVendors(){
           <div style="font-size:14px;font-weight:600">${v.name}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:2px">${v.contact||'—'}</div>
         </div>
-        <button class="btn btn-g" style="padding:5px 12px;font-size:12px" onclick="openEditVendor(${i})">Edit</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-g" style="padding:5px 12px;font-size:12px" onclick="openEditVendor(${i})">Edit</button>
+          <button class="btn btn-d" style="padding:5px 10px;font-size:12px" onclick="deleteVendor('${v.id}')" aria-label="Hapus vendor">🗑</button>
+        </div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <div>
@@ -3307,6 +3318,29 @@ function rVendors(){
       </div>
     </div>`;
   }).join('');
+}
+function deleteVendor(id){
+  const v=TRINKET_VENDORS.find(x=>x.id===id); if(!v) return;
+  if((v.totalOwed||0)>0){ toast('⚠ '+v.name+' masih punya utang '+rp(v.totalOwed)+' — bayar vendor dulu sebelum dihapus'); return; }
+  const prods=TRINKET_PRODUCTS.filter(p=>p.vendorId===id);
+  let msg='Hapus vendor "'+v.name+'"?';
+  if(prods.length) msg+='\n\nVendor ini punya '+prods.length+' produk. SEMUA produk tersebut ikut dihapus.';
+  msg+='\n\nRiwayat penjualan & pembayaran tetap tersimpan.';
+  if(!confirm(msg)) return;
+  apiPost({action:'deleteTrinketVendor',vendor_id:id,delete_products:prods.length>0}).then(res=>{
+    if(res.success){
+      const gone=(res.deleted_products&&res.deleted_products.length)?res.deleted_products:prods.map(p=>p.id);
+      for(let k=TRINKET_VENDORS.length-1;k>=0;k--) if(TRINKET_VENDORS[k].id===id) TRINKET_VENDORS.splice(k,1);
+      const fsel=document.getElementById('produk-filter-vendor'); if(fsel){ fsel.dataset.populated='0'; if(fsel.value===id) fsel.value=''; }
+      afterProdukDeleted(gone);
+      try{ rProdukVendorDropdown(); }catch(e){}
+      try{ rPosVendorFilter(); }catch(e){}
+      rVendors();
+      toast('🗑 Vendor "'+v.name+'" dihapus'+(gone.length?' beserta '+gone.length+' produk':''));
+    } else if(res.error==='owed') toast('⚠ Vendor masih punya utang '+rp(res.owed));
+    else if(res.error==='has_products') toast('⚠ Vendor masih punya '+res.count+' produk');
+    else toast('⚠ Gagal hapus: '+(res.error||''));
+  }).catch(()=>toast('⚠ Gagal hapus — cek koneksi'));
 }
 let editVendorIdx=null;
 function openVendor(){
@@ -3434,8 +3468,12 @@ function rProduk(){
     const imgHtml=p.imageLink
       ?`<img src="${convertDriveLink(p.imageLink)}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       :'';
-    return `<div style="padding:14px 16px;border-bottom:1px solid var(--border)">
+    const selChk=PRODUK_SELECT_MODE
+      ?`<input type="checkbox" class="chk-green" ${PRODUK_SEL.has(p.id)?'checked':''} onchange="toggleProdukSel('${p.id}',this.checked)" style="align-self:center">`
+      :'';
+    return `<div style="padding:14px 16px;border-bottom:1px solid var(--border);${PRODUK_SEL.has(p.id)?'background:var(--red-l,#fdecea)':''}">
       <div style="display:flex;gap:12px">
+        ${selChk}
         ${imgHtml}
         <div style="width:56px;height:56px;border-radius:10px;background:var(--surface2);display:${p.imageLink?'none':'flex'};align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🏷️</div>
         <div style="flex:1;min-width:0">
@@ -3451,11 +3489,80 @@ function rProduk(){
       <div style="display:flex;gap:8px;margin-top:12px">
         <button class="btn btn-g" style="flex:1;justify-content:center;font-size:12px;padding:7px" onclick="openEditProduk(${i})">✏️ Edit</button>
         <button class="btn btn-g" style="flex:1;justify-content:center;font-size:12px;padding:7px" onclick="openStockAdjust(${i})">📦 Sesuaikan Stok</button>
+        <button class="btn btn-d" style="justify-content:center;font-size:12px;padding:7px 12px" onclick="deleteProduk('${p.id}')" aria-label="Hapus produk">🗑</button>
       </div>
     </div>`;
   }).join('');
+  updateProdukSelUI();
 }
 let editProdukIdx=null;
+
+/* ===== HAPUS PRODUK (satuan & massal) ===== */
+let PRODUK_SELECT_MODE=false;
+const PRODUK_SEL=new Set();
+function updateProdukSelUI(){
+  const tools=document.getElementById('produk-selmode-tools');
+  const btn=document.getElementById('produk-selmode-btn');
+  const del=document.getElementById('produk-del-sel-btn');
+  if(tools) tools.style.display=PRODUK_SELECT_MODE?'flex':'none';
+  if(btn) btn.textContent=PRODUK_SELECT_MODE?'✕ Selesai Memilih':'☑ Pilih untuk Hapus';
+  if(del){ del.textContent='🗑 Hapus ('+PRODUK_SEL.size+')'; del.disabled=!PRODUK_SEL.size; del.style.opacity=PRODUK_SEL.size?'':'.5'; }
+}
+function toggleProdukSelectMode(){
+  PRODUK_SELECT_MODE=!PRODUK_SELECT_MODE;
+  if(!PRODUK_SELECT_MODE) PRODUK_SEL.clear();
+  rProduk();
+}
+function toggleProdukSel(id,on){
+  if(on) PRODUK_SEL.add(id); else PRODUK_SEL.delete(id);
+  rProduk();
+}
+function getFilteredProdukIds(){
+  const term=(document.getElementById('produk-search')?.value||'').toLowerCase().trim();
+  const fv=document.getElementById('produk-filter-vendor')?.value||'';
+  return TRINKET_PRODUCTS.filter(p=>{
+    const v=TRINKET_VENDORS.find(x=>x.id===p.vendorId);
+    return (!fv||p.vendorId===fv)&&(!term||p.name.toLowerCase().includes(term)||(v&&v.name.toLowerCase().includes(term)));
+  }).map(p=>p.id);
+}
+function produkSelectAllFiltered(){ getFilteredProdukIds().forEach(id=>PRODUK_SEL.add(id)); rProduk(); }
+function produkClearSel(){ PRODUK_SEL.clear(); rProduk(); }
+function afterProdukDeleted(ids){
+  const gone=new Set(ids);
+  for(let k=TRINKET_PRODUCTS.length-1;k>=0;k--) if(gone.has(TRINKET_PRODUCTS[k].id)) TRINKET_PRODUCTS.splice(k,1);
+  ids.forEach(id=>PRODUK_SEL.delete(id));
+  try{ rProduk(); }catch(e){}
+  try{ rPosProducts(); }catch(e){}
+  try{ rVendors(); }catch(e){}
+}
+function deleteProduk(id){
+  const p=TRINKET_PRODUCTS.find(x=>x.id===id); if(!p) return;
+  if(!confirm('Hapus produk "'+p.name+'"?\n\nRiwayat penjualan yang sudah ada tetap tersimpan.')) return;
+  apiPost({action:'deleteTrinketProducts',ids:[id]}).then(res=>{
+    if(res.success){ afterProdukDeleted(res.deleted&&res.deleted.length?res.deleted:[id]); toast('🗑 Produk dihapus'); }
+    else toast('⚠ Gagal hapus: '+(res.error||''));
+  }).catch(()=>toast('⚠ Gagal hapus — cek koneksi'));
+}
+async function deleteSelectedProduk(){
+  const ids=[...PRODUK_SEL];
+  if(!ids.length) return;
+  const names=ids.slice(0,5).map(id=>'• '+(TRINKET_PRODUCTS.find(p=>p.id===id)?.name||id)).join('\n');
+  const more=ids.length>5?'\n…dan '+(ids.length-5)+' lainnya':'';
+  if(!confirm('Hapus '+ids.length+' produk?\n\n'+names+more+'\n\nRiwayat penjualan tetap tersimpan.')) return;
+  showLoading&&showLoading('Menghapus '+ids.length+' produk…');
+  const CH=40; let ok=[],fail=0;
+  for(let i=0;i<ids.length;i+=CH){
+    const part=ids.slice(i,i+CH);
+    try{
+      const res=await apiPost({action:'deleteTrinketProducts',ids:part});
+      if(res&&res.success) ok=ok.concat(res.deleted&&res.deleted.length?res.deleted:part); else fail+=part.length;
+    }catch(e){ fail+=part.length; }
+  }
+  hideLoading&&hideLoading();
+  afterProdukDeleted(ok);
+  if(!PRODUK_SEL.size && PRODUK_SELECT_MODE){ PRODUK_SELECT_MODE=false; rProduk(); }
+  toast(fail?('🗑 '+ok.length+' dihapus, '+fail+' gagal — coba lagi'):('🗑 '+ok.length+' produk dihapus'));
+}
 /* ===== KATEGORI PRODUK ===== */
 function toggleKategoriPanel(){
   const panel=document.getElementById('tk-cat-panel');

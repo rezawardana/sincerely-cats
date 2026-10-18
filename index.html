@@ -264,6 +264,13 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
   .modal::before{display:none}
   .toast{bottom:24px}
 }
+.tkd-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.tkd-t th{text-align:left;font-size:10.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tkd-t td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.tkd-t .num{text-align:right;white-space:nowrap}
+.tkd-t .tkd-total td{font-weight:700;background:var(--surface2)}
+.tkd-bar{height:4px;background:var(--surface2);border-radius:3px;margin-top:5px;min-width:60px}
+.tkd-bar i{display:block;height:100%;background:var(--accent-m);border-radius:3px}
 </style>
 </head>
 <body>
@@ -484,6 +491,7 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
       <button class="ftab active" id="tk-tab-vendor" onclick="showTrinketSub('vendor',this)">Vendor</button>
       <button class="ftab" id="tk-tab-produk" onclick="showTrinketSub('produk',this)">Produk</button>
       <button class="ftab" id="tk-tab-kasir" onclick="showTrinketSub('kasir',this)">🛒 Kasir</button>
+      <button class="ftab" id="tk-tab-dash" onclick="showTrinketSub('dash',this)">📊 Dashboard</button>
     </div>
 
     <!-- VENDOR SUB-PAGE -->
@@ -537,6 +545,32 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
         </span>
       </div>
       <div class="card"><div id="produk-list"></div></div>
+    </div>
+
+    <!-- DASHBOARD SUB-PAGE -->
+    <div id="tk-sub-dash" class="tk-sub" style="display:none">
+      <div class="ftabs" style="margin-bottom:10px">
+        <button class="ftab active" id="tkd-t-sum" onclick="tkdShow('sum')">Ringkasan</button>
+        <button class="ftab" id="tkd-t-debt" onclick="tkdShow('debt')">Utang Vendor</button>
+        <button class="ftab" id="tkd-t-hist" onclick="tkdShow('hist')">Riwayat Transaksi</button>
+        <button class="ftab" id="tkd-t-top" onclick="tkdShow('top')">Terlaris &amp; Restock</button>
+      </div>
+      <div id="tkd-filter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <select id="tkd-period" onchange="tkdOnPeriod()">
+          <option value="all">Semua waktu</option>
+          <option value="this">Bulan ini</option>
+          <option value="last">Bulan lalu</option>
+          <option value="30">30 hari terakhir</option>
+          <option value="90">90 hari terakhir</option>
+          <option value="year">Tahun ini</option>
+          <option value="custom">Pilih tanggal…</option>
+        </select>
+        <span id="tkd-custom" style="display:none;gap:6px;align-items:center">
+          <input type="date" id="tkd-from" onchange="rTkDash()"><span>s/d</span><input type="date" id="tkd-to" onchange="rTkDash()">
+        </span>
+        <span id="tkd-range-label" class="msub"></span>
+      </div>
+      <div id="tkd-body"></div>
     </div>
 
     <!-- KASIR / POS SUB-PAGE -->
@@ -2128,7 +2162,7 @@ async function loadAllData(){
   showLoading('Menghubungkan ke database...');
   try {
     // Load in parallel
-    const [bkRes, custRes, addonRes, txRes, settRes, expCatRes, expRes, tvRes, tpRes, tcRes, psRes] = await Promise.all([
+    const [bkRes, custRes, addonRes, txRes, settRes, expCatRes, expRes, tvRes, tpRes, tcRes, psRes, tslRes, tpoRes] = await Promise.all([
       apiGet('getBookings'),
       apiGet('getCustomers'),
       apiGet('getAddons'),
@@ -2140,6 +2174,8 @@ async function loadAllData(){
       apiGet('getTrinketProducts'),
       apiGet('getTrinketCategories'),
       apiGet('getPeakSeasons'),
+      apiGet('getTrinketSales'),
+      apiGet('getTrinketPayouts'),
     ]);
 
     if(bkRes.success){
@@ -2193,6 +2229,10 @@ async function loadAllData(){
       TRINKET_PRODUCTS.length = 0;
       tpRes.data.forEach(p => TRINKET_PRODUCTS.push(p));
     }
+
+    if(tslRes && tslRes.success){ TRINKET_SALES = tslRes.data; TKD_ERROR = ''; }
+    else { TKD_ERROR = (tslRes && tslRes.error) || 'Gagal memuat riwayat penjualan'; }
+    if(tpoRes && tpoRes.success){ TRINKET_PAYOUTS = tpoRes.data; }
 
     if(tcRes.success){
       TRINKET_CATEGORIES.length = 0;
@@ -3283,7 +3323,397 @@ function showTrinketSub(sub, btn){
   if(btn) btn.classList.add('active');
   if(sub==='vendor') rVendors();
   if(sub==='produk'){ rProduk(); rTrinketCategories(); }
+  if(sub==='dash'){ rTkDash(); }
   if(sub==='kasir'){ rPosCategories(); rPosVendorFilter(); rPosProducts(); rCart(); initPosDate(); }
+}
+
+/* ============================================================
+   TRINKETS — DASHBOARD (v7)
+   Data sumber: sheet TrinketSales, TrinketSaleItems, TrinketPayouts (butuh Apps Script v4)
+   ============================================================ */
+let TRINKET_SALES = [];     // [{id,date,channel,notes,total,vendorPayout,businessRevenue,items:[...]}]
+let TRINKET_PAYOUTS = [];   // [{id,vendorId,date,amount,notes}]
+let TKD_ERROR = '';         // terisi kalau backend belum v4
+let TKD_TAB = 'sum';
+let TKD_HIST_Q = '', TKD_HIST_VENDOR = '', TKD_HIST_LIMIT = 30;
+let TKD_DEBT_ALL = false;
+let TKD_TOP_BY = 'qty';
+let TKD_RS_DAYS = 30, TKD_RS_TARGET = 30;
+let TKD_AGING = [], TKD_RESTOCK_ROWS = [];
+
+/*TKD_PURE_START*/
+const TKD_MONTHS_ID=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+function tkdEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tkdMonthKey(ds){ return String(ds||'').slice(0,7); }
+function tkdMonthLabel(k){ const p=String(k).split('-'); return (TKD_MONTHS_ID[Number(p[1])-1]||p[1])+' '+p[0]; }
+function tkdDateLabel(ds){ if(!ds) return '—'; return Number(ds.slice(8,10))+' '+(TKD_MONTHS_ID[Number(ds.slice(5,7))-1]||'')+' '+ds.slice(0,4); }
+function tkdUTC(ds){ return Date.UTC(+ds.slice(0,4),+ds.slice(5,7)-1,+ds.slice(8,10)); }
+function tkdDayDiff(a,b){ return Math.round((tkdUTC(b)-tkdUTC(a))/86400000); }
+function tkdAddDays(ds,n){ return new Date(tkdUTC(ds)+n*86400000).toISOString().slice(0,10); }
+function tkdRange(preset,today,cFrom,cTo){
+  const y=today.slice(0,4), m=today.slice(5,7);
+  if(preset==='this') return {from:y+'-'+m+'-01',to:today};
+  if(preset==='last'){
+    let py=+y, pm=+m-1; if(pm<1){pm=12;py--;}
+    return {from:py+'-'+String(pm).padStart(2,'0')+'-01', to:tkdAddDays(y+'-'+m+'-01',-1)};
+  }
+  if(preset==='30') return {from:tkdAddDays(today,-29),to:today};
+  if(preset==='90') return {from:tkdAddDays(today,-89),to:today};
+  if(preset==='year') return {from:y+'-01-01',to:today};
+  if(preset==='custom') return {from:cFrom||'',to:cTo||''};
+  return {from:'',to:''};
+}
+function tkdInRange(ds,r){ return (!r.from||ds>=r.from)&&(!r.to||ds<=r.to); }
+
+// Ringkasan penjualan dalam rentang: total, per bulan, per vendor
+function tkdSummary(sales,r){
+  const o={tx:0,items:0,gross:0,vendor:0,biz:0}, byM={}, byV={};
+  sales.forEach(s=>{
+    if(!tkdInRange(s.date,r)) return;
+    o.tx++;
+    const mk=tkdMonthKey(s.date);
+    const M=byM[mk]=byM[mk]||{key:mk,tx:0,items:0,gross:0,vendor:0,biz:0};
+    M.tx++;
+    (s.items||[]).forEach(it=>{
+      const g=it.price*it.qty;
+      o.items+=it.qty; o.gross+=g; o.vendor+=it.vendorPayout; o.biz+=it.businessRevenue;
+      M.items+=it.qty; M.gross+=g; M.vendor+=it.vendorPayout; M.biz+=it.businessRevenue;
+      const V=byV[it.vendorId]=byV[it.vendorId]||{vendorId:it.vendorId,items:0,gross:0,vendor:0,biz:0};
+      V.items+=it.qty; V.gross+=g; V.vendor+=it.vendorPayout; V.biz+=it.businessRevenue;
+    });
+  });
+  o.months=Object.keys(byM).sort().map(k=>byM[k]);
+  o.vendors=Object.keys(byV).map(k=>byV[k]).sort((a,b)=>b.gross-a.gross);
+  return o;
+}
+
+// Utang vendor per bulan. Pembayaran dialokasikan ke bulan TERLAMA dulu (FIFO).
+function tkdVendorAging(sales,payouts,vendors){
+  const acc={};
+  sales.forEach(s=>{
+    const mk=tkdMonthKey(s.date);
+    (s.items||[]).forEach(it=>{
+      const V=acc[it.vendorId]=acc[it.vendorId]||{};
+      const M=V[mk]=V[mk]||{accrued:0,products:{}};
+      M.accrued+=it.vendorPayout;
+      const P=M.products[it.name]=M.products[it.name]||{qty:0,pay:0};
+      P.qty+=it.qty; P.pay+=it.vendorPayout;
+    });
+  });
+  const paid={};
+  payouts.forEach(p=>{ paid[p.vendorId]=(paid[p.vendorId]||0)+p.amount; });
+  const ids={};
+  Object.keys(acc).forEach(i=>ids[i]=1);
+  vendors.forEach(v=>{ if((v.totalOwed||0)>0) ids[v.id]=1; });
+  const res=[];
+  Object.keys(ids).forEach(id=>{
+    const v=vendors.find(x=>x.id===id);
+    const V=acc[id]||{};
+    let remaining=paid[id]||0;
+    const months=Object.keys(V).sort().map(k=>{
+      const a=V[k].accrued, pay=Math.min(a,Math.max(0,remaining));
+      remaining-=pay;
+      return {key:k,accrued:a,paid:pay,outstanding:a-pay,products:V[k].products};
+    });
+    res.push({
+      vendorId:id, name:v?v.name:'(vendor dihapus)', months,
+      accruedTotal:months.reduce((s,m)=>s+m.accrued,0),
+      paid:paid[id]||0,
+      outstanding:months.reduce((s,m)=>s+m.outstanding,0),
+      credit:Math.max(0,remaining),
+      sheetOwed:v?(v.totalOwed||0):null,
+    });
+  });
+  return res.sort((a,b)=>b.outstanding-a.outstanding||a.name.localeCompare(b.name));
+}
+
+// Produk terlaris dalam rentang (termasuk produk yang sudah dihapus dari katalog)
+function tkdTopSellers(sales,r){
+  const m={};
+  sales.forEach(s=>{
+    if(!tkdInRange(s.date,r)) return;
+    (s.items||[]).forEach(it=>{
+      const x=m[it.productId]=m[it.productId]||{productId:it.productId,name:it.name,vendorId:it.vendorId,qty:0,rev:0};
+      x.qty+=it.qty; x.rev+=it.price*it.qty;
+    });
+  });
+  return Object.keys(m).map(k=>m[k]);
+}
+
+// Kecepatan jual & saran restock per produk
+function tkdProductStats(sales,products,today,days,target){
+  const first=sales.reduce((mn,s)=>(!mn||s.date<mn)?s.date:mn,'');
+  const from=days?tkdAddDays(today,-(days-1)):'';
+  let effFrom=from; if(first&&(!effFrom||first>effFrom)) effFrom=first;
+  const effDays=Math.max(7, effFrom?tkdDayDiff(effFrom,today)+1:7);
+  const sold={};
+  sales.forEach(s=>{
+    if(from&&s.date<from) return;
+    (s.items||[]).forEach(it=>{
+      const x=sold[it.productId]=sold[it.productId]||{qty:0,rev:0};
+      x.qty+=it.qty; x.rev+=it.price*it.qty;
+    });
+  });
+  const rows=products.map(p=>{
+    const x=sold[p.id]||{qty:0,rev:0}, perDay=x.qty/effDays;
+    const cover=perDay>0?p.stock/perDay:Infinity;
+    const suggest=perDay>0?Math.max(0,Math.ceil(perDay*target-p.stock)):0;
+    let status;
+    if(x.qty===0) status=p.stock>0?'slow':'empty';
+    else if(p.stock<=0) status='out';
+    else if(cover<7) status='urgent';
+    else if(cover<target) status='soon';
+    else status='ok';
+    return {id:p.id,name:p.name,vendorId:p.vendorId,stock:p.stock,sold:x.qty,rev:x.rev,perWeek:perDay*7,cover,suggest,status};
+  });
+  return {rows,effDays,first};
+}
+/*TKD_PURE_END*/
+
+/* ---------- util tampilan ---------- */
+function tkdVendorName(id){ const v=TRINKET_VENDORS.find(x=>x.id===id); return v?v.name:'(vendor dihapus)'; }
+function tkdCopy(text,okMsg){
+  const done=()=>toast(okMsg||'✓ Tersalin');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>tkdCopyFallback(text,done));
+  } else tkdCopyFallback(text,done);
+}
+function tkdCopyFallback(text,done){
+  const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); done(); }catch(e){ toast('⚠ Gagal menyalin'); }
+  document.body.removeChild(ta);
+}
+function tkdCover(c){ if(c===Infinity) return '—'; if(c<1) return '<1 hari'; if(c>365) return '>1 th'; return Math.round(c)+' hari'; }
+function tkdStatusBadge(s){
+  return ({out:'<span class="badge br">Habis</span>',urgent:'<span class="badge br">Segera</span>',
+    soon:'<span class="badge ba">Perlu restock</span>',ok:'<span class="badge bg">Aman</span>',
+    slow:'<span class="badge bgr">Belum laku</span>',empty:'<span class="badge bgr">Kosong</span>'})[s]||'';
+}
+function tkdTable(head,body,numFrom){
+  // numFrom: kolom ke berapa (0-based) dan seterusnya rata kanan
+  return '<div style="overflow-x:auto"><table class="tkd-t"><thead><tr>'+
+    head.map((h,i)=>`<th class="${i>=numFrom?'num':''}">${h}</th>`).join('')+
+    '</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+/* ---------- navigasi & filter ---------- */
+function tkdCurrentRange(){
+  const p=document.getElementById('tkd-period').value;
+  return tkdRange(p,todayStr(),document.getElementById('tkd-from').value,document.getElementById('tkd-to').value);
+}
+function tkdRangeLabel(r){
+  if(!r.from&&!r.to) return 'Semua waktu';
+  return tkdDateLabel(r.from||'')+' – '+tkdDateLabel(r.to||todayStr());
+}
+function tkdOnPeriod(){
+  const p=document.getElementById('tkd-period').value;
+  document.getElementById('tkd-custom').style.display=p==='custom'?'inline-flex':'none';
+  TKD_HIST_LIMIT=30;
+  rTkDash();
+}
+function tkdShow(tab){
+  TKD_TAB=tab; TKD_HIST_LIMIT=30;
+  ['sum','debt','hist','top'].forEach(t=>{
+    const b=document.getElementById('tkd-t-'+t); if(b) b.classList.toggle('active',t===tab);
+  });
+  rTkDash();
+}
+function tkdRefreshIfVisible(){
+  const el=document.getElementById('tk-sub-dash');
+  if(el&&el.style.display!=='none') rTkDash();
+}
+
+function rTkDash(){
+  const body=document.getElementById('tkd-body'); if(!body) return;
+  document.getElementById('tkd-filter').style.display=(TKD_TAB==='debt')?'none':'flex';
+  const rl=document.getElementById('tkd-range-label');
+  if(rl) rl.textContent=tkdRangeLabel(tkdCurrentRange());
+  if(TKD_ERROR){
+    body.innerHTML=`<div class="card"><div class="cb"><div style="font-weight:600;margin-bottom:6px">⚠ Dashboard belum bisa memuat data</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6">Backend (Apps Script) belum versi terbaru. Tempel kode <b>apps-script-v4.gs</b>, lalu Deploy → Manage deployments → pensil → <b>New version</b>. Setelah itu refresh halaman ini.<br><span style="color:var(--text3);font-size:12px">Detail: ${tkdEsc(TKD_ERROR)}</span></div></div></div>`;
+    return;
+  }
+  if(TKD_TAB==='sum') tkdRenderSummary(body);
+  else if(TKD_TAB==='debt') tkdRenderDebt(body);
+  else if(TKD_TAB==='hist') tkdRenderHistory(body);
+  else tkdRenderTop(body);
+}
+
+/* ---------- 1. RINGKASAN ---------- */
+function tkdRenderSummary(body){
+  const r=tkdCurrentRange(), S=tkdSummary(TRINKET_SALES,r);
+  if(!S.tx){ body.innerHTML='<div class="card"><div class="es"><p>Belum ada transaksi pada periode ini.</p></div></div>'; return; }
+  const margin=S.gross?Math.round(S.biz/S.gross*100):0;
+  const card=(l,v,sub,col)=>`<div class="mc"><div class="mlbl">${l}</div><div class="mval" style="font-size:19px;${col?'color:'+col:''}">${v}</div><div class="msub">${sub}</div></div>`;
+  let h='<div class="mgrid">'+
+    card('Penjualan Kotor',rp(S.gross),S.tx+' transaksi · '+S.items+' item')+
+    card('Pendapatan Bisnis',rp(S.biz),'Margin '+margin+'%','var(--accent)')+
+    card('Bagian Vendor',rp(S.vendor),S.gross?Math.round(S.vendor/S.gross*100)+'% dari penjualan':'—')+
+    card('Rata-rata / Transaksi',rp(S.tx?S.gross/S.tx:0),(S.items/S.tx).toFixed(1)+' item / transaksi')+
+  '</div>';
+  const maxBiz=Math.max.apply(null,S.months.map(m=>m.biz).concat([1]));
+  const mrows=S.months.slice().reverse().map(m=>`<tr>
+    <td><b>${tkdMonthLabel(m.key)}</b><div class="tkd-bar"><i style="width:${Math.round(m.biz/maxBiz*100)}%"></i></div></td>
+    <td class="num">${m.tx}</td><td class="num">${m.items}</td><td class="num">${rp(m.gross)}</td><td class="num">${rp(m.vendor)}</td><td class="num" style="color:var(--accent);font-weight:600">${rp(m.biz)}</td></tr>`).join('');
+  const mtotal=`<tr class="tkd-total"><td>Total</td><td class="num">${S.tx}</td><td class="num">${S.items}</td><td class="num">${rp(S.gross)}</td><td class="num">${rp(S.vendor)}</td><td class="num">${rp(S.biz)}</td></tr>`;
+  h+=`<div class="card"><div class="ch"><span class="ct">Per Bulan</span></div>${tkdTable(['Bulan','Trx','Item','Penjualan','Vendor','Bisnis'],mrows+mtotal,1)}</div>`;
+  const vrows=S.vendors.map(v=>`<tr><td><b>${tkdEsc(tkdVendorName(v.vendorId))}</b></td><td class="num">${v.items}</td><td class="num">${rp(v.gross)}</td><td class="num">${rp(v.vendor)}</td><td class="num" style="color:var(--accent);font-weight:600">${rp(v.biz)}</td></tr>`).join('');
+  h+=`<div class="card"><div class="ch"><span class="ct">Per Vendor</span></div>${tkdTable(['Vendor','Item','Penjualan','Bagian Vendor','Bisnis'],vrows,1)}</div>`;
+  body.innerHTML=h;
+}
+
+/* ---------- 2. UTANG VENDOR PER BULAN ---------- */
+function tkdRenderDebt(body){
+  TKD_AGING=tkdVendorAging(TRINKET_SALES,TRINKET_PAYOUTS,TRINKET_VENDORS);
+  const owing=TKD_AGING.filter(a=>a.outstanding>0||(a.sheetOwed||0)>0);
+  const clear=TKD_AGING.filter(a=>!(a.outstanding>0||(a.sheetOwed||0)>0));
+  const total=owing.reduce((s,a)=>s+a.outstanding,0);
+  let oldest=null;
+  owing.forEach(a=>{ a.months.forEach(m=>{ if(m.outstanding>0&&(!oldest||m.key<oldest.key)) oldest={key:m.key,name:a.name}; }); });
+  let h=`<div class="mgrid">
+    <div class="mc"><div class="mlbl">Total Utang ke Vendor</div><div class="mval" style="font-size:19px;color:${total>0?'var(--red)':'var(--text3)'}">${rp(total)}</div><div class="msub">${owing.filter(a=>a.outstanding>0).length} vendor belum lunas</div></div>
+    <div class="mc"><div class="mlbl">Utang Tertua</div><div class="mval" style="font-size:19px">${oldest?tkdMonthLabel(oldest.key):'—'}</div><div class="msub">${oldest?tkdEsc(oldest.name):'Semua lunas'}</div></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="TKD_DEBT_ALL=!TKD_DEBT_ALL;rTkDash()">${TKD_DEBT_ALL?'Sembunyikan bulan yang sudah lunas':'Tampilkan semua bulan'}</button>
+    <span class="msub">Pembayaran dialokasikan ke bulan <b>terlama</b> lebih dulu.</span>
+  </div>`;
+  if(!owing.length) h+='<div class="card"><div class="es"><p>Tidak ada utang ke vendor. 🎉</p></div></div>';
+  owing.forEach(a=>{
+    const idx=TRINKET_VENDORS.findIndex(v=>v.id===a.vendorId);
+    const mism=a.sheetOwed!==null&&Math.abs(a.sheetOwed-a.outstanding)>1;
+    const ms=a.months.filter(m=>TKD_DEBT_ALL||m.outstanding>0).slice().reverse();
+    const rows=ms.map(m=>{
+      const st=m.outstanding<=0?'<span class="badge bg">Lunas</span>':(m.paid>0?'<span class="badge ba">Sebagian</span>':'<span class="badge br">Belum dibayar</span>');
+      const prods=Object.keys(m.products).map(n=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text2);padding:2px 0"><span>${tkdEsc(n)} ×${m.products[n].qty}</span><span>${rp(m.products[n].pay)}</span></div>`).join('');
+      return `<div style="padding:10px 16px;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div><b>${tkdMonthLabel(m.key)}</b> ${st}<div class="msub">Bagian vendor ${rp(m.accrued)}${m.paid>0?' · sudah dibayar '+rp(m.paid):''}</div></div>
+          <div style="font-weight:700;color:${m.outstanding>0?'var(--red)':'var(--text3)'}">${rp(m.outstanding)}</div>
+        </div>
+        <details style="margin-top:4px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">Rincian produk</summary>${prods||'<div class="msub">—</div>'}</details>
+      </div>`;
+    }).join('');
+    h+=`<div class="card"><div style="padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+        <div><div style="font-size:15px;font-weight:600">${tkdEsc(a.name)}</div>
+          <div class="msub">Total bagian vendor ${rp(a.accruedTotal)} · sudah dibayar ${rp(a.paid)}</div></div>
+        <div style="text-align:right"><div class="msub">Sisa utang</div><div style="font-size:18px;font-weight:700;color:${a.outstanding>0?'var(--red)':'var(--text3)'}">${rp(a.outstanding)}</div></div>
+      </div>
+      ${mism?`<div style="margin-top:8px;font-size:12px;color:var(--amber);background:var(--amber-l);border-radius:8px;padding:6px 10px">Saldo di sheet vendor: ${rp(a.sheetOwed)} (selisih ${rp(Math.abs(a.sheetOwed-a.outstanding))}). Kemungkinan ada data lama atau penyesuaian manual yang tidak tercatat di riwayat transaksi.</div>`:''}
+      ${a.credit>0?`<div style="margin-top:8px;font-size:12px;color:var(--text3)">Pembayaran melebihi catatan penjualan sebesar ${rp(a.credit)}.</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="tkdCopyRekap('${a.vendorId}')">📋 Salin rekap</button>
+        ${idx>=0&&(a.sheetOwed||0)>0?`<button class="btn btn-p" style="font-size:12px;padding:6px 12px" onclick="openVendorPayout(${idx})">💰 Bayar Vendor</button>`:''}
+      </div></div>${rows}</div>`;
+  });
+  if(clear.length) h+=`<div class="msub" style="margin:6px 2px 14px">Tanpa utang: ${clear.map(a=>tkdEsc(a.name)).join(', ')}</div>`;
+  body.innerHTML=h;
+}
+function tkdCopyRekap(vendorId){
+  const a=TKD_AGING.find(x=>x.vendorId===vendorId); if(!a) return;
+  const ms=a.months.filter(m=>m.outstanding>0);
+  let t='Rekap penjualan Trinkets — '+a.name+'\nSincerely Cats\n';
+  ms.forEach(m=>{
+    t+='\n'+tkdMonthLabel(m.key)+'\n';
+    Object.keys(m.products).forEach(n=>{ t+='• '+n+' ×'+m.products[n].qty+' = '+rp(m.products[n].pay)+'\n'; });
+    t+='Bagian vendor: '+rp(m.accrued)+'\n';
+    if(m.paid>0) t+='Sudah dibayar: '+rp(m.paid)+'\nSisa: '+rp(m.outstanding)+'\n';
+  });
+  t+='\nTotal yang belum dibayar: '+rp(a.outstanding);
+  tkdCopy(t,'✓ Rekap '+a.name+' tersalin');
+}
+
+/* ---------- 3. RIWAYAT TRANSAKSI ---------- */
+function tkdRenderHistory(body){
+  const opts='<option value="">Semua Vendor</option>'+TRINKET_VENDORS.map(v=>`<option value="${v.id}"${TKD_HIST_VENDOR===v.id?' selected':''}>${tkdEsc(v.name)}</option>`).join('');
+  body.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <input type="text" id="tkd-hq" placeholder="🔍 Cari produk, vendor, atau catatan..." value="${tkdEsc(TKD_HIST_Q)}" oninput="TKD_HIST_Q=this.value;TKD_HIST_LIMIT=30;tkdRenderHistList()" style="flex:1;min-width:180px">
+    <select id="tkd-hv" onchange="TKD_HIST_VENDOR=this.value;TKD_HIST_LIMIT=30;tkdRenderHistList()" style="min-width:150px">${opts}</select>
+  </div><div id="tkd-hist-list"></div>`;
+  tkdRenderHistList();
+}
+function tkdRenderHistList(){
+  const el=document.getElementById('tkd-hist-list'); if(!el) return;
+  const r=tkdCurrentRange(), q=TKD_HIST_Q.trim().toLowerCase();
+  const list=TRINKET_SALES.filter(s=>{
+    if(!tkdInRange(s.date,r)) return false;
+    if(TKD_HIST_VENDOR&&!(s.items||[]).some(it=>it.vendorId===TKD_HIST_VENDOR)) return false;
+    if(!q) return true;
+    const hay=(s.id+' '+s.date+' '+s.channel+' '+s.notes+' '+(s.items||[]).map(it=>it.name+' '+tkdVendorName(it.vendorId)).join(' ')).toLowerCase();
+    return hay.indexOf(q)>=0;
+  }).sort((a,b)=>a.date===b.date?(b.createdAt||'').localeCompare(a.createdAt||''):(a.date<b.date?1:-1));
+  if(!list.length){ el.innerHTML='<div class="card"><div class="es"><p>Tidak ada transaksi yang cocok.</p></div></div>'; return; }
+  const sum=list.reduce((s,x)=>s+x.total,0);
+  let h=`<div class="msub" style="margin:0 2px 8px">${list.length} transaksi · total ${rp(sum)}</div>`;
+  list.slice(0,TKD_HIST_LIMIT).forEach(s=>{
+    const its=(s.items||[]);
+    const n=its.reduce((x,i)=>x+i.qty,0);
+    const lines=its.map(it=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-top:1px dashed var(--border)">
+      <span>${tkdEsc(it.name)} <span style="color:var(--text3)">×${it.qty} · ${tkdEsc(tkdVendorName(it.vendorId))}</span></span><span>${rp(it.price*it.qty)}</span></div>`).join('');
+    h+=`<div class="card" style="margin-bottom:8px"><div style="padding:12px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div><b>${tkdDateLabel(s.date)}</b> <span class="badge bgr">${tkdEsc(s.channel||'—')}</span>
+          <div class="msub">${n} item · vendor ${rp(s.vendorPayout)} · bisnis ${rp(s.businessRevenue)}</div></div>
+        <div style="font-weight:700">${rp(s.total)}</div>
+      </div>
+      <details style="margin-top:4px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">Lihat item</summary>${lines}${s.notes?`<div class="msub" style="margin-top:4px">Catatan: ${tkdEsc(s.notes)}</div>`:''}</details>
+    </div></div>`;
+  });
+  if(list.length>TKD_HIST_LIMIT) h+=`<button class="btn btn-g btn-full" onclick="TKD_HIST_LIMIT+=30;tkdRenderHistList()">Tampilkan 30 lagi (${list.length-TKD_HIST_LIMIT} tersisa)</button>`;
+  el.innerHTML=h;
+}
+
+/* ---------- 4. TERLARIS & RESTOCK ---------- */
+function tkdRenderTop(body){
+  const r=tkdCurrentRange();
+  const top=tkdTopSellers(TRINKET_SALES,r).sort((a,b)=>TKD_TOP_BY==='rev'?b.rev-a.rev:(b.qty-a.qty||b.rev-a.rev)).slice(0,15);
+  const stockOf=id=>{ const p=TRINKET_PRODUCTS.find(x=>x.id===id); return p?String(p.stock):'—'; };
+  let h=`<div class="card"><div class="ch"><span class="ct">🔥 Produk Terlaris</span>
+    <select onchange="TKD_TOP_BY=this.value;rTkDash()" style="font-size:12px"><option value="qty"${TKD_TOP_BY==='qty'?' selected':''}>Urut jumlah terjual</option><option value="rev"${TKD_TOP_BY==='rev'?' selected':''}>Urut pendapatan</option></select></div>`;
+  if(!top.length) h+='<div class="es"><p>Belum ada penjualan pada periode ini.</p></div>';
+  else h+=tkdTable(['#','Produk','Terjual','Penjualan','Stok'],top.map((t,i)=>`<tr><td>${i+1}</td><td><b>${tkdEsc(t.name)}</b><div class="msub">${tkdEsc(tkdVendorName(t.vendorId))}</div></td><td class="num">${t.qty}</td><td class="num">${rp(t.rev)}</td><td class="num">${stockOf(t.productId)}</td></tr>`).join(''),2);
+  h+='</div>';
+
+  const st=tkdProductStats(TRINKET_SALES,TRINKET_PRODUCTS,todayStr(),TKD_RS_DAYS,TKD_RS_TARGET);
+  const order={out:0,urgent:1,soon:2};
+  const need=st.rows.filter(x=>x.status in order).sort((a,b)=>order[a.status]-order[b.status]||a.cover-b.cover||b.sold-a.sold);
+  TKD_RESTOCK_ROWS=need.filter(x=>x.suggest>0);
+  const cnt=k=>need.filter(x=>x.status===k).length;
+  const sel=(id,cur,vals,fn,lab)=>`<select onchange="${fn}(+this.value)" style="font-size:12px">${vals.map(v=>`<option value="${v}"${cur===v?' selected':''}>${lab(v)}</option>`).join('')}</select>`;
+  h+=`<div class="card"><div class="ch" style="flex-wrap:wrap;gap:8px"><span class="ct">📦 Rekomendasi Restock</span>
+      <span style="display:flex;gap:6px;flex-wrap:wrap">
+        ${sel('d',TKD_RS_DAYS,[14,30,60,90,0],'tkdSetRsDays',v=>v?'Penjualan '+v+' hari terakhir':'Semua data')}
+        ${sel('t',TKD_RS_TARGET,[14,30,45,60],'tkdSetRsTarget',v=>'Stok cukup '+v+' hari')}
+      </span></div>
+    <div style="padding:0 16px 10px" class="msub">Laju jual dihitung dari ${st.effDays} hari data${st.effDays<=7?' (data masih sedikit, anggap sebagai gambaran awal)':''}. ${cnt('out')} habis · ${cnt('urgent')} segera · ${cnt('soon')} perlu restock.</div>`;
+  if(!need.length) h+='<div class="es"><p>Belum ada produk yang perlu di-restock berdasarkan data penjualan.</p></div>';
+  else {
+    h+=tkdTable(['Produk','Laju/minggu','Stok','Cukup untuk','Restock','Status'],need.slice(0,40).map(x=>`<tr><td><b>${tkdEsc(x.name)}</b><div class="msub">${tkdEsc(tkdVendorName(x.vendorId))}</div></td><td class="num">${x.perWeek.toFixed(1)}</td><td class="num">${x.stock}</td><td class="num">${tkdCover(x.cover)}</td><td class="num"><b>${x.suggest>0?'+'+x.suggest:'—'}</b></td><td class="num">${tkdStatusBadge(x.status)}</td></tr>`).join(''),1);
+    if(need.length>40) h+=`<div class="msub" style="padding:8px 16px">Menampilkan 40 dari ${need.length} produk. Daftar salin berisi semuanya.</div>`;
+    h+=`<div style="padding:12px 16px"><button class="btn btn-p" onclick="tkdCopyRestock()">📋 Salin daftar restock per vendor</button></div>`;
+  }
+  h+='</div>';
+
+  const slow=st.rows.filter(x=>x.status==='slow').sort((a,b)=>b.stock-a.stock);
+  h+=`<div class="card"><details><summary style="padding:14px 16px;cursor:pointer;font-weight:600">🐢 Belum laku di periode ini (${slow.length} produk, masih ada stok)</summary>
+    ${slow.length?tkdTable(['Produk','Stok'],slow.slice(0,60).map(x=>`<tr><td><b>${tkdEsc(x.name)}</b><div class="msub">${tkdEsc(tkdVendorName(x.vendorId))}</div></td><td class="num">${x.stock}</td></tr>`).join(''),1):'<div class="es"><p>Semua produk berstok sudah pernah laku.</p></div>'}
+    <div class="msub" style="padding:8px 16px">Pertimbangkan promo, bundling, atau jangan restock dulu.</div></details></div>`;
+  body.innerHTML=h;
+}
+function tkdSetRsDays(v){ TKD_RS_DAYS=v; rTkDash(); }
+function tkdSetRsTarget(v){ TKD_RS_TARGET=v; rTkDash(); }
+function tkdCopyRestock(){
+  if(!TKD_RESTOCK_ROWS.length){ toast('Tidak ada yang perlu direstock'); return; }
+  const g={};
+  TKD_RESTOCK_ROWS.forEach(x=>{ (g[x.vendorId]=g[x.vendorId]||[]).push(x); });
+  let t='Daftar restock Trinkets — Sincerely Cats\n(target stok cukup '+TKD_RS_TARGET+' hari)\n';
+  Object.keys(g).forEach(id=>{
+    t+='\n'+tkdVendorName(id)+'\n';
+    g[id].forEach(x=>{ t+='• '+x.name+': +'+x.suggest+' (stok '+x.stock+')\n'; });
+  });
+  tkdCopy(t.trim(),'✓ Daftar restock tersalin');
 }
 
 /* ===== VENDOR ===== */
@@ -3411,7 +3841,8 @@ function saveVendorPayout(){
     if(res.success){
       v.totalOwed=Math.max(0,(v.totalOwed||0)-amount);
       v.totalPaid=(v.totalPaid||0)+amount;
-      closeOv('vp-ov'); rVendors();
+      TRINKET_PAYOUTS.push({id:'LOCAL-'+Date.now(),vendorId:v.id,date:todayStr(),amount,notes});
+      closeOv('vp-ov'); rVendors(); tkdRefreshIfVisible();
       toast('✓ Pembayaran '+rp(amount)+' ke '+v.name+' tercatat');
     } else { toast('⚠ Gagal: '+(res.error||'')); }
   }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
@@ -4175,6 +4606,10 @@ function checkoutPOS(){
         const v=TRINKET_VENDORS.find(x=>x.id===it.vendor_id);
         if(v) v.totalOwed=(v.totalOwed||0)+it.vendor_payout_amount;
       });
+      TRINKET_SALES.push({id:'LOCAL-'+Date.now(),date:saleDate,channel:POS_CHANNEL,notes:'',
+        total:totalAmount,vendorPayout:totalVendorPayout,businessRevenue:totalBusinessRevenue,createdAt:new Date().toISOString(),
+        items:items.map(it=>({productId:it.product_id,name:it.product_name,vendorId:it.vendor_id,qty:it.qty,price:it.price_at_sale,
+          splitPct:it.vendor_split_pct_at_sale,vendorPayout:it.vendor_payout_amount,businessRevenue:it.business_revenue_amount}))});
       POS_CART=[];
       POS_DATE_TOUCHED=false;
       document.getElementById('pos-reduce-stock').checked=true;

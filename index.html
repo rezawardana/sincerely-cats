@@ -3693,7 +3693,7 @@ function saveProduk(){
   const stock=parseInt(document.getElementById('pd-stock').value)||0;
   if(!name||!vendorId||!sellPrice){toast('⚠ Lengkapi nama, vendor, dan harga');return;}
   if(splitType==='pct'&&!document.getElementById('pd-split').value){toast('⚠ Isi split persen vendor');return;}
-  if(splitType==='nom'&&!vendorSplitNominal){toast('⚠ Isi split nominal vendor');return;}
+  if(splitType==='nom'&&document.getElementById('pd-split-nom').value===''){toast('⚠ Isi split nominal vendor (0 jika gratis)');return;}
   const category=document.getElementById('pd-category').value.trim();
   const lowStockThreshold=parseInt(document.getElementById('pd-threshold').value)||5;
   const imageLink=document.getElementById('pd-image').value.trim();
@@ -3777,8 +3777,9 @@ function doPreviewBulkImport(){
     const splitType=(splitTypeStr||'').toLowerCase()==='nom'?'nom':(splitTypeStr||'').toLowerCase()==='pct'?'pct':null;
     if(!splitType) errors.push('Tipe split harus "pct" atau "nom"');
 
-    const splitVal=parseFloat(splitValStr)||0;
-    if(!splitVal) errors.push('Nilai split tidak valid');
+    // 0 diperbolehkan (vendor memberi gratis / titip tanpa bagi hasil); hanya kosong/non-angka yang ditolak
+    const splitVal=parseFloat(splitValStr);
+    if(splitValStr===undefined||splitValStr===''||isNaN(splitVal)||splitVal<0) errors.push('Nilai split tidak valid (isi 0 jika vendor tidak mendapat bagian)');
 
     const stock=parseInt(stockStr)||0;
     const threshold=parseInt(thresholdStr)||5;

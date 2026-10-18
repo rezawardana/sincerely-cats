@@ -920,14 +920,14 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
         <div class="fgr"><label>Kategori</label><select id="pd-category"><option value="">-- Pilih Kategori --</option></select></div>
         <div class="fgr"><label>Vendor/Artist *</label><select id="pd-vendor"><option value="">-- Pilih Vendor --</option></select></div>
         <div class="fgr"><label>Harga Jual (Rp) *</label><input type="number" id="pd-price" placeholder="cth. 10000"></div>
-        <div class="fgr"><label>Tipe Split Vendor</label>
+        <div class="fgr"><label>Tipe Bagian Vendor</label>
           <select id="pd-split-type" onchange="togglePdSplitType()">
             <option value="pct">Persen (%)</option>
             <option value="nom">Nominal Flat (Rp)</option>
           </select>
         </div>
-        <div class="fgr" id="pd-split-pct-wrap"><label>Split Vendor (%) *</label><input type="number" id="pd-split" placeholder="cth. 70" min="0" max="100"></div>
-        <div class="fgr" id="pd-split-nom-wrap" style="display:none"><label>Split Vendor per Item (Rp) *</label><input type="number" id="pd-split-nom" placeholder="cth. 10000"></div>
+        <div class="fgr" id="pd-split-pct-wrap"><label>Bagian VENDOR (%) *</label><input type="number" id="pd-split" placeholder="cth. 70" min="0" max="100"><div style="font-size:11px;color:var(--text3);margin-top:4px">Porsi yang menjadi hak <b>vendor</b> dari harga jual (bukan profit toko). Contoh: 70 berarti vendor 70%, toko 30%. Isi 0 kalau semuanya masuk toko.</div></div>
+        <div class="fgr" id="pd-split-nom-wrap" style="display:none"><label>Bagian VENDOR per Item (Rp) *</label><input type="number" id="pd-split-nom" placeholder="cth. 10000"><div style="font-size:11px;color:var(--text3);margin-top:4px">Nominal yang menjadi hak <b>vendor</b> per item terjual (bukan profit toko). Isi 0 kalau semuanya masuk toko.</div></div>
         <div class="fgr"><label>Stok Awal *</label><input type="number" id="pd-stock" placeholder="cth. 50"></div>
         <div class="fgr"><label>Batas Stok Menipis</label><input type="number" id="pd-threshold" placeholder="cth. 5" value="5"></div>
         <div class="fgr full"><label>Link Foto (opsional)</label><input type="text" id="pd-image" placeholder="Link Google Drive/Photos yang bisa diakses publik"></div>
@@ -949,7 +949,7 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
       <div id="bi-step-paste">
         <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
           <strong>Format kolom (pisah pakai TAB, urutan harus sama):</strong><br>
-          Nama | Kategori | Nama Vendor | Harga Jual | Tipe Split (pct/nom) | Nilai Split | Stok | Batas Stok | Link Foto<br><br>
+          Nama | Kategori | Nama Vendor | Harga Jual | Tipe Split (pct/nom) | Nilai Split | Stok | Batas Stok | Link Foto<br><span style="color:var(--red);font-weight:600">Nilai Split = bagian untuk VENDOR (bukan profit toko).</span> Contoh: pct 70 → vendor 70%, toko 30%. Boleh 0.<br><br>
           <strong>Cara pakai:</strong> Siapkan kolom sesuai urutan di atas pada spreadsheet kamu sendiri → select semua baris data (tanpa header) → copy → paste di kotak bawah ini.<br>
           <em style="color:var(--text3)">Link Foto & Batas Stok boleh dikosongkan.</em>
         </div>
@@ -3912,7 +3912,7 @@ function rProduk(){
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.category||'Tanpa kategori'} · ${vendor?vendor.name:'Vendor tidak ditemukan'}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
             <span class="badge bg">${rp(p.sellPrice)}</span>
-            <span class="badge bp">Split ${p.splitType==='nom'?rp(p.vendorSplitNominal||0):((p.vendorSplitPct||0)+'%')}</span>
+            <span class="badge bp">Vendor ${p.splitType==='nom'?rp(p.vendorSplitNominal||0):((p.vendorSplitPct||0)+'%')}</span>
             <span class="badge ${lowStock?'br':'bgr'}">Stok: ${p.stock}</span>
           </div>
         </div>
@@ -4266,7 +4266,7 @@ function doPreviewBulkImport(){
     let subLine;
     if(!r.valid) subLine=`<div style="font-size:11px;color:var(--red);margin-top:2px">${r.errors.join(', ')}</div>`;
     else if(r.isDuplicate) subLine=`<div style="font-size:11px;color:#a06800;margin-top:2px">${r.duplicateInPaste?'Duplikat dalam data yang kamu tempel':'Sudah terdaftar di sistem'} (${r.duplicateReason||'nama+vendor sama'})</div>`;
-    else subLine=`<div style="font-size:11px;color:var(--text3);margin-top:2px">${r.category||'Tanpa kategori'} · ${r.vendorName} · Split ${r.splitType==='nom'?rp(r.splitVal):r.splitVal+'%'} · Stok ${r.stock}</div>`;
+    else subLine=`<div style="font-size:11px;color:var(--text3);margin-top:2px">${r.category||'Tanpa kategori'} · ${r.vendorName} · Vendor ${r.splitType==='nom'?rp(r.splitVal):r.splitVal+'%'} · Stok ${r.stock}</div>`;
     return `<div style="padding:10px 12px;border-bottom:1px solid var(--border);${bg?'background:'+bg:''}">
       <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">
         <span>${r.name||'(tanpa nama)'}</span>

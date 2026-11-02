@@ -910,6 +910,26 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
   </div>
 </div>
 
+<!-- EDIT TRANSAKSI TRINKETS -->
+<div class="ov" id="es-ov">
+  <div class="modal">
+    <div class="mh"><div class="mt">Edit Transaksi</div><button class="mc2" onclick="closeOv('es-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div class="fg">
+        <div class="fgr full"><label id="es-info" style="font-weight:600;color:var(--text)"></label></div>
+        <div class="fgr full"><label>Tanggal *</label><input type="date" id="es-date"></div>
+        <div class="fgr full"><label>Channel</label><input type="text" id="es-channel" placeholder="Offline / Online / dll"></div>
+        <div class="fgr full"><label>Catatan</label><input type="text" id="es-notes"></div>
+        <div class="fgr full"><div class="msub">Item & harga tidak bisa diubah di sini. Kalau item salah, hapus transaksi lalu input ulang.</div></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeOv('es-ov')">Batal</button>
+      <button class="btn btn-p" onclick="saveEditSale()">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <!-- PRODUK MODAL -->
 <div class="ov" id="pd-ov">
   <div class="modal">
@@ -3658,11 +3678,68 @@ function tkdRenderHistList(){
           <div class="msub">${n} item · vendor ${rp(s.vendorPayout)} · bisnis ${rp(s.businessRevenue)}</div></div>
         <div style="font-weight:700">${rp(s.total)}</div>
       </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-g" style="padding:4px 10px;font-size:12px" onclick="openEditSale('${s.id}')">✏️ Edit</button>
+        <button class="btn btn-d" style="padding:4px 10px;font-size:12px" onclick="deleteSale('${s.id}')">🗑 Hapus</button>
+      </div>
       <details style="margin-top:4px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">Lihat item</summary>${lines}${s.notes?`<div class="msub" style="margin-top:4px">Catatan: ${tkdEsc(s.notes)}</div>`:''}</details>
     </div></div>`;
   });
   if(list.length>TKD_HIST_LIMIT) h+=`<button class="btn btn-g btn-full" onclick="TKD_HIST_LIMIT+=30;tkdRenderHistList()">Tampilkan 30 lagi (${list.length-TKD_HIST_LIMIT} tersisa)</button>`;
   el.innerHTML=h;
+}
+
+/* ---------- Edit / hapus transaksi ---------- */
+let EDIT_SALE_ID=null;
+function tkdSaleLocalGuard(id){
+  if(String(id).indexOf('LOCAL-')===0){ toast('⚠ Transaksi baru ini belum tersinkron. Muat ulang halaman dulu.'); return true; }
+  return false;
+}
+function openEditSale(id){
+  if(tkdSaleLocalGuard(id)) return;
+  const s=TRINKET_SALES.find(x=>x.id===id); if(!s) return;
+  EDIT_SALE_ID=id;
+  document.getElementById('es-info').textContent=(s.items||[]).map(i=>i.name+' ×'+i.qty).join(', ')+' · '+rp(s.total);
+  document.getElementById('es-date').value=s.date;
+  document.getElementById('es-date').max=todayStr();
+  document.getElementById('es-channel').value=s.channel||'';
+  document.getElementById('es-notes').value=s.notes||'';
+  document.getElementById('es-ov').classList.add('open');
+}
+function saveEditSale(){
+  if(SUBMIT_LOCK) return;
+  const s=TRINKET_SALES.find(x=>x.id===EDIT_SALE_ID); if(!s) return;
+  const d=document.getElementById('es-date').value;
+  if(!d){ toast('⚠ Tanggal wajib diisi'); return; }
+  if(d>todayStr()){ toast('⚠ Tanggal tidak boleh di masa depan'); return; }
+  const channel=document.getElementById('es-channel').value.trim()||'Offline';
+  const notes=document.getElementById('es-notes').value.trim();
+  SUBMIT_LOCK=true; showLoading('Menyimpan...');
+  apiPost({action:'updateTrinketSale',sale_id:s.id,sale_date:d,channel,notes}).then(res=>{
+    hideLoading();
+    if(res.success){ s.date=d; s.channel=channel; s.notes=notes; closeOv('es-ov'); tkdRenderHistList(); tkdRefreshIfVisible(); toast('✓ Transaksi diupdate'); }
+    else toast('⚠ Gagal: '+(res.error||''));
+  }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
+}
+function deleteSale(id){
+  if(SUBMIT_LOCK||tkdSaleLocalGuard(id)) return;
+  const s=TRINKET_SALES.find(x=>x.id===id); if(!s) return;
+  const names=(s.items||[]).map(i=>i.name+' ×'+i.qty).join('\n');
+  if(!confirm('Hapus transaksi '+tkdDateLabel(s.date)+' ('+rp(s.total)+')?\n\n'+names+'\n\nHutang ke vendor ikut dikurangi '+rp(s.vendorPayout)+'.')) return;
+  const restore=confirm('Kembalikan stok produk?\n\nOK = stok dikembalikan (cocok untuk input ganda / salah input).\nBatal = stok tidak diubah (barang memang sudah keluar).');
+  SUBMIT_LOCK=true; showLoading('Menghapus...');
+  apiPost({action:'deleteTrinketSale',sale_id:id,restore_stock:restore}).then(res=>{
+    hideLoading();
+    if(res.success){
+      const k=TRINKET_SALES.findIndex(x=>x.id===id); if(k>=0) TRINKET_SALES.splice(k,1);
+      (s.items||[]).forEach(it=>{
+        const v=TRINKET_VENDORS.find(x=>x.id===it.vendorId); if(v) v.totalOwed=(v.totalOwed||0)-(it.vendorPayout||0);
+        if(restore){ const p=TRINKET_PRODUCTS.find(x=>x.id===it.productId); if(p) p.stock=(Number(p.stock)||0)+it.qty; }
+      });
+      tkdRenderHistList(); tkdRefreshIfVisible(); try{rVendors();}catch(e){} try{rProduk();}catch(e){}
+      toast('🗑 Transaksi dihapus'+(restore?' · stok dikembalikan':''));
+    } else toast('⚠ Gagal: '+(res.error||''));
+  }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
 }
 
 /* ---------- 4. TERLARIS & RESTOCK ---------- */

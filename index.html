@@ -920,7 +920,8 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
         <div class="fgr full"><label>Tanggal *</label><input type="date" id="es-date"></div>
         <div class="fgr full"><label>Channel</label><input type="text" id="es-channel" placeholder="Offline / Online / dll"></div>
         <div class="fgr full"><label>Catatan</label><input type="text" id="es-notes"></div>
-        <div class="fgr full"><div class="msub">Item & harga tidak bisa diubah di sini. Kalau item salah, hapus transaksi lalu input ulang.</div></div>
+        <div class="fgr full"><label>Item (ubah jumlah/harga, atau tandai 🗑 untuk menghapus)</label><div id="es-items"></div></div>
+        <div class="fgr full"><div class="msub">Hutang vendor ikut dihitung ulang. Untuk menambah produk baru, buat transaksi baru.</div></div>
       </div>
     </div>
     <div class="mf">
@@ -3597,6 +3598,7 @@ function tkdRenderDebt(body){
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
     <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="TKD_DEBT_ALL=!TKD_DEBT_ALL;rTkDash()">${TKD_DEBT_ALL?'Sembunyikan bulan yang sudah lunas':'Tampilkan semua bulan'}</button>
+    <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="tkdExportDebt('')">📊 Unduh Excel semua vendor</button>
     <span class="msub">Pembayaran dialokasikan ke bulan <b>terlama</b> lebih dulu.</span>
   </div>`;
   if(!owing.length) h+='<div class="card"><div class="es"><p>Tidak ada utang ke vendor. 🎉</p></div></div>';
@@ -3625,11 +3627,83 @@ function tkdRenderDebt(body){
       ${a.credit>0?`<div style="margin-top:8px;font-size:12px;color:var(--text3)">Pembayaran melebihi catatan penjualan sebesar ${rp(a.credit)}.</div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="tkdCopyRekap('${a.vendorId}')">📋 Salin rekap</button>
+        <button class="btn btn-g" style="font-size:12px;padding:6px 12px" onclick="tkdExportDebt('${a.vendorId}')">📊 Unduh Excel</button>
         ${idx>=0&&(a.sheetOwed||0)>0?`<button class="btn btn-p" style="font-size:12px;padding:6px 12px" onclick="openVendorPayout(${idx})">💰 Bayar Vendor</button>`:''}
       </div></div>${rows}</div>`;
   });
   if(clear.length) h+=`<div class="msub" style="margin:6px 2px 14px">Tanpa utang: ${clear.map(a=>tkdEsc(a.name)).join(', ')}</div>`;
   body.innerHTML=h;
+}
+/* ---------- Unduh rekap utang vendor (Excel) ---------- */
+function tkdLoadXlsx(){
+  return new Promise((res,rej)=>{
+    if(window.XLSX) return res();
+    const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload=()=>res(); sc.onerror=()=>rej(new Error('Gagal memuat library Excel, cek koneksi'));
+    document.head.appendChild(sc);
+  });
+}
+function tkdDmy(ds){ const x=String(ds||'').split('-'); return x.length===3?(x[2]+'/'+x[1]+'/'+x[0]):String(ds||''); }
+function tkdDebtDetailSheet(a){
+  const keys={}; a.months.forEach(m=>{ if(m.outstanding>0) keys[m.key]=1; });
+  const items=[];
+  TRINKET_SALES.forEach(s=>{
+    if(!keys[tkdMonthKey(s.date)]) return;
+    (s.items||[]).forEach(it=>{
+      if(it.vendorId!==a.vendorId) return;
+      const p=TRINKET_PRODUCTS.find(x=>x.id===it.productId);
+      items.push({date:s.date,cat:p?(p.category||'—'):'—',name:it.name,qty:it.qty,price:it.price,total:it.price*it.qty,vendor:it.vendorPayout});
+    });
+  });
+  items.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:x.name.localeCompare(y.name));
+  const rows=[['Tanggal','Brand','Kategori','Nama Produk','Qty Terjual','Harga Satuan','Total Penjualan','Bagian Vendor']];
+  items.forEach(i=>rows.push([tkdDmy(i.date),a.name,i.cat,i.name,i.qty,i.price,i.total,i.vendor]));
+  rows.push(['TOTAL','','','',items.reduce((t,i)=>t+i.qty,0),'',items.reduce((t,i)=>t+i.total,0),items.reduce((t,i)=>t+i.vendor,0)]);
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:20},{wch:16},{wch:48},{wch:12},{wch:14},{wch:16},{wch:16}];
+  ws['!freeze']={xSplit:0,ySplit:1};
+  return ws;
+}
+function tkdDebtMonthSheet(a){
+  const rows=[['Bulan','Bagian Vendor','Sudah Dibayar','Sisa Belum Dibayar']];
+  a.months.filter(m=>m.outstanding>0).forEach(m=>rows.push([tkdMonthLabel(m.key),m.accrued,m.paid,m.outstanding]));
+  const om=a.months.filter(m=>m.outstanding>0);
+  rows.push(['TOTAL',om.reduce((t,m)=>t+m.accrued,0),om.reduce((t,m)=>t+m.paid,0),om.reduce((t,m)=>t+m.outstanding,0)]);
+  rows.push([]); rows.push(['Pembayaran dialokasikan ke bulan terlama lebih dulu.']);
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:18},{wch:18},{wch:18},{wch:22}];
+  return ws;
+}
+function tkdSheetName(n,used){
+  let b=String(n).replace(/[\\\/\?\*\[\]:]/g,' ').trim().slice(0,28)||'Vendor', x=b, k=2;
+  while(used[x]){ x=b.slice(0,26)+' '+k++; }
+  used[x]=1; return x;
+}
+function tkdExportDebt(vendorId){
+  TKD_AGING=tkdVendorAging(TRINKET_SALES,TRINKET_PAYOUTS,TRINKET_VENDORS);
+  const list=TKD_AGING.filter(a=>a.outstanding>0&&(!vendorId||a.vendorId===vendorId));
+  if(!list.length){ toast('Tidak ada utang untuk diunduh'); return; }
+  showLoading('Menyiapkan Excel...');
+  tkdLoadXlsx().then(()=>{
+    const wb=XLSX.utils.book_new(), used={};
+    const stamp=todayStr();
+    if(vendorId){
+      const a=list[0];
+      XLSX.utils.book_append_sheet(wb,tkdDebtMonthSheet(a),tkdSheetName('Ringkasan',used));
+      XLSX.utils.book_append_sheet(wb,tkdDebtDetailSheet(a),tkdSheetName('Rekap',used));
+    } else {
+      const rows=[['Vendor','Bagian Vendor','Sudah Dibayar','Sisa Belum Dibayar']];
+      list.forEach(a=>{ const om=a.months.filter(m=>m.outstanding>0); rows.push([a.name,om.reduce((t,m)=>t+m.accrued,0),om.reduce((t,m)=>t+m.paid,0),a.outstanding]); });
+      rows.push(['TOTAL',rows.slice(1).reduce((t,r)=>t+r[1],0),rows.slice(1).reduce((t,r)=>t+r[2],0),rows.slice(1).reduce((t,r)=>t+r[3],0)]);
+      const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:30},{wch:18},{wch:18},{wch:22}];
+      XLSX.utils.book_append_sheet(wb,ws,tkdSheetName('Ringkasan',used));
+      list.forEach(a=>XLSX.utils.book_append_sheet(wb,tkdDebtDetailSheet(a),tkdSheetName(a.name,used)));
+    }
+    const fname=vendorId?('Rekap_Utang_'+list[0].name.replace(/[^\w\-]+/g,'_')+'_'+stamp+'.xlsx'):('Rekap_Utang_Semua_Vendor_'+stamp+'.xlsx');
+    XLSX.writeFile(wb,fname);
+    hideLoading(); toast('✓ '+fname+' diunduh');
+  }).catch(e=>{ hideLoading(); toast('⚠ '+(e.message||'Gagal membuat Excel')); });
 }
 function tkdCopyRekap(vendorId){
   const a=TKD_AGING.find(x=>x.vendorId===vendorId); if(!a) return;
@@ -3647,7 +3721,7 @@ function tkdCopyRekap(vendorId){
 
 /* ---------- 3. RIWAYAT TRANSAKSI ---------- */
 function tkdRenderHistory(body){
-  const opts='<option value="">Semua Vendor</option>'+TRINKET_VENDORS.map(v=>`<option value="${v.id}"${TKD_HIST_VENDOR===v.id?' selected':''}>${tkdEsc(v.name)}</option>`).join('');
+  const opts='<option value="">Semua Vendor</option>'+tkdSortedVendors().map(v=>`<option value="${v.id}"${TKD_HIST_VENDOR===v.id?' selected':''}>${tkdEsc(v.name)}</option>`).join('');
   body.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
     <input type="text" id="tkd-hq" placeholder="🔍 Cari produk, vendor, atau catatan..." value="${tkdEsc(TKD_HIST_Q)}" oninput="TKD_HIST_Q=this.value;TKD_HIST_LIMIT=30;tkdRenderHistList()" style="flex:1;min-width:180px">
     <select id="tkd-hv" onchange="TKD_HIST_VENDOR=this.value;TKD_HIST_LIMIT=30;tkdRenderHistList()" style="min-width:150px">${opts}</select>
@@ -3699,11 +3773,16 @@ function openEditSale(id){
   if(tkdSaleLocalGuard(id)) return;
   const s=TRINKET_SALES.find(x=>x.id===id); if(!s) return;
   EDIT_SALE_ID=id;
-  document.getElementById('es-info').textContent=(s.items||[]).map(i=>i.name+' ×'+i.qty).join(', ')+' · '+rp(s.total);
+  document.getElementById('es-info').textContent=tkdDateLabel(s.date)+' · total '+rp(s.total);
   document.getElementById('es-date').value=s.date;
   document.getElementById('es-date').max=todayStr();
   document.getElementById('es-channel').value=s.channel||'';
   document.getElementById('es-notes').value=s.notes||'';
+  document.getElementById('es-items').innerHTML=(s.items||[]).map((it,k)=>`<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:8px" id="es-row-${k}">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="font-size:13px;font-weight:600">${tkdEsc(it.name)}<div class="msub">${tkdEsc(tkdVendorName(it.vendorId))}</div></div>
+    <label style="font-size:12px;color:var(--red);white-space:nowrap;cursor:pointer"><input type="checkbox" id="es-rm-${k}" onchange="document.getElementById('es-row-${k}').style.opacity=this.checked?0.4:1"> 🗑 Hapus</label></div>
+    <div style="display:flex;gap:8px;margin-top:6px"><div style="flex:1"><div class="msub">Jumlah</div><input type="number" min="1" id="es-qty-${k}" value="${it.qty}"></div>
+    <div style="flex:2"><div class="msub">Harga satuan</div><input type="number" min="0" id="es-price-${k}" value="${it.price}"></div></div></div>`).join('');
   document.getElementById('es-ov').classList.add('open');
 }
 function saveEditSale(){
@@ -3714,11 +3793,55 @@ function saveEditSale(){
   if(d>todayStr()){ toast('⚠ Tanggal tidak boleh di masa depan'); return; }
   const channel=document.getElementById('es-channel').value.trim()||'Offline';
   const notes=document.getElementById('es-notes').value.trim();
+  // item
+  const its=s.items||[]; const edits=[]; let changed=false, removed=0, qtyChanged=false;
+  for(let k=0;k<its.length;k++){
+    const it=its[k];
+    const rm=document.getElementById('es-rm-'+k).checked;
+    const qty=Math.floor(Number(document.getElementById('es-qty-'+k).value)||0);
+    const price=Number(document.getElementById('es-price-'+k).value);
+    if(!rm&&(qty<1||!(price>=0))){ toast('⚠ Jumlah minimal 1 dan harga valid (baris '+(k+1)+')'); return; }
+    if(rm){ removed++; edits.push({idx:k,remove:true,qty:it.qty,price:it.price,vendor_payout:0,business_revenue:0}); changed=true; continue; }
+    let pay=it.vendorPayout, biz;
+    if(qty!==it.qty||price!==it.price){
+      changed=true; if(qty!==it.qty) qtyChanged=true;
+      const p=TRINKET_PRODUCTS.find(x=>x.id===it.productId);
+      const nominal=p&&p.splitType==='nom';
+      if(nominal||!(it.price>0)) pay=Math.round((it.vendorPayout/it.qty)*qty);
+      else pay=Math.round(it.vendorPayout*(price*qty)/(it.price*it.qty));
+      pay=Math.min(pay,price*qty);
+    }
+    biz=price*qty-pay;
+    edits.push({idx:k,remove:false,qty,price,vendor_payout:pay,business_revenue:biz});
+  }
+  if(removed>=its.length&&its.length){ toast('⚠ Semua item dihapus? Pakai tombol Hapus transaksi saja.'); return; }
+  let adjust=false;
+  if(changed&&(qtyChanged||removed)) adjust=confirm('Sesuaikan stok produk dengan perubahan jumlah/hapus item?\n\nOK = stok disesuaikan (cocok untuk salah input / input ganda).\nBatal = stok tidak diubah.');
+  const payload={action:'updateTrinketSale',sale_id:s.id,sale_date:d,channel,notes};
+  if(changed){ payload.items=edits; payload.adjust_stock=adjust; }
   SUBMIT_LOCK=true; showLoading('Menyimpan...');
-  apiPost({action:'updateTrinketSale',sale_id:s.id,sale_date:d,channel,notes}).then(res=>{
+  apiPost(payload).then(res=>{
     hideLoading();
-    if(res.success){ s.date=d; s.channel=channel; s.notes=notes; closeOv('es-ov'); tkdRenderHistList(); tkdRefreshIfVisible(); toast('✓ Transaksi diupdate'); }
-    else toast('⚠ Gagal: '+(res.error||''));
+    if(res.success){
+      s.date=d; s.channel=channel; s.notes=notes;
+      if(changed){
+        const kept=[];
+        edits.forEach((e,k)=>{
+          const it=its[k];
+          const v=TRINKET_VENDORS.find(x=>x.id===it.vendorId);
+          const newPay=e.remove?0:e.vendor_payout, newQty=e.remove?0:e.qty;
+          if(v) v.totalOwed=(v.totalOwed||0)+(newPay-it.vendorPayout);
+          if(adjust){ const p=TRINKET_PRODUCTS.find(x=>x.id===it.productId); if(p) p.stock=Math.max(0,(Number(p.stock)||0)+(it.qty-newQty)); }
+          if(!e.remove){ it.qty=e.qty; it.price=e.price; it.vendorPayout=e.vendor_payout; it.businessRevenue=e.business_revenue; kept.push(it); }
+        });
+        s.items=kept;
+        s.total=kept.reduce((t,i)=>t+i.price*i.qty,0);
+        s.vendorPayout=kept.reduce((t,i)=>t+i.vendorPayout,0);
+        s.businessRevenue=kept.reduce((t,i)=>t+i.businessRevenue,0);
+      }
+      closeOv('es-ov'); tkdRenderHistList(); tkdRefreshIfVisible(); try{rVendors();}catch(e){} try{rProduk();}catch(e){}
+      toast('✓ Transaksi diupdate');
+    } else toast('⚠ Gagal: '+(res.error||''));
   }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
 }
 function deleteSale(id){
@@ -3803,8 +3926,13 @@ function rVendors(){
     list.innerHTML='<div class="es"><p>Belum ada vendor. Tap Tambah Vendor untuk menambahkan.</p></div>';
     return;
   }
-  list.innerHTML=TRINKET_VENDORS.map((v,i)=>{
+  let AG={};
+  try{ tkdVendorAging(TRINKET_SALES,TRINKET_PAYOUTS,TRINKET_VENDORS).forEach(a=>{AG[a.vendorId]=a;}); }catch(e){}
+  list.innerHTML=TRINKET_VENDORS.map((v,i)=>({v,i})).sort((x,y)=>String(x.v.name).localeCompare(String(y.v.name),'id',{sensitivity:'base'})).map(({v,i})=>{
     const owed=v.totalOwed||0;
+    const ag=AG[v.id];
+    const openM=ag?ag.months.filter(m=>m.outstanding>0).slice().reverse():[];
+    const monthHtml=openM.length?`<details style="margin-top:8px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">Rincian per bulan (${openM.length} bulan)</summary>${openM.map(m=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:4px 0;border-top:1px dashed var(--border)"><span>${tkdMonthLabel(m.key)}${m.paid>0?' <span style="color:var(--text3)">(sebagian dibayar)</span>':''}</span><b>${rp(m.outstanding)}</b></div>`).join('')}${(ag&&Math.abs((v.totalOwed||0)-ag.outstanding)>1)?`<div style="font-size:11px;color:var(--amber);margin-top:4px">Total per bulan ${rp(ag.outstanding)} berbeda dari saldo ${rp(v.totalOwed||0)} (kemungkinan data lama/penyesuaian manual).</div>`:''}</details>`:'';
     return `<div style="padding:14px 16px;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
@@ -3824,6 +3952,7 @@ function rVendors(){
         </div>
         ${owed>0?`<button class="btn btn-p" style="padding:7px 14px;font-size:12px" onclick="openVendorPayout(${i})">💰 Bayar Vendor</button>`:''}
       </div>
+      ${monthHtml}
     </div>`;
   }).join('');
 }
@@ -3927,11 +4056,12 @@ function saveVendorPayout(){
 }
 
 /* ===== PRODUK ===== */
+function tkdSortedVendors(){ return TRINKET_VENDORS.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'id',{sensitivity:'base'})); }
 function rProdukVendorDropdown(){
   const sel=document.getElementById('pd-vendor');
   if(!sel) return;
   const cur=sel.value;
-  sel.innerHTML='<option value="">-- Pilih Vendor --</option>'+TRINKET_VENDORS.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
+  sel.innerHTML='<option value="">-- Pilih Vendor --</option>'+tkdSortedVendors().map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
   if(cur) sel.value=cur;
 }
 function rProduk(){
@@ -3941,7 +4071,7 @@ function rProduk(){
   // Populate vendor filter dropdown (preserve current selection)
   const vendorFilterSel=document.getElementById('produk-filter-vendor');
   if(vendorFilterSel && vendorFilterSel.dataset.populated!=='1'){
-    vendorFilterSel.innerHTML='<option value="">Semua Vendor</option>'+TRINKET_VENDORS.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
+    vendorFilterSel.innerHTML='<option value="">Semua Vendor</option>'+tkdSortedVendors().map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
     vendorFilterSel.dataset.populated='1';
   }
 
@@ -4496,7 +4626,7 @@ function rPosVendorFilter(){
   if(!sel) return;
   const cur=sel.value;
   const usedIds=new Set(TRINKET_PRODUCTS.map(p=>p.vendorId));
-  const vendors=TRINKET_VENDORS.filter(v=>usedIds.has(v.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  const vendors=tkdSortedVendors().filter(v=>usedIds.has(v.id));
   sel.innerHTML='<option value="">Semua Vendor</option>'+vendors.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
   if(cur && vendors.some(v=>v.id===cur)) sel.value=cur;
 }

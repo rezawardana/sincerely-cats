@@ -961,6 +961,33 @@ input.chk-green:focus{box-shadow:0 0 0 3px rgba(29,106,74,.15)}
   </div>
 </div>
 
+<!-- IMPORT RIWAYAT MODAL -->
+<div class="ov" id="hi-ov">
+  <div class="modal" style="max-width:680px">
+    <div class="mh"><div class="mt">Import Riwayat Penjualan</div><button class="mc2" onclick="closeOv('hi-ov')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="mb">
+      <div id="hi-step-paste">
+        <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.6">
+          <strong>Kotak 1 — Penjualan</strong> (pisah TAB, tanpa header, 1 baris = 1 transaksi):<br>
+          Tanggal (yyyy-mm-dd) | Nama Vendor | Nama Produk (persis di sistem) | Qty | Harga Satuan | Bagian Vendor per Item | Pembayaran | Pembeli<br>
+          <span style="color:var(--red);font-weight:600">Stok TIDAK dikurangi. Harga &amp; bagian vendor disimpan apa adanya (tidak mengikuti katalog).</span><br><br>
+          <strong>Kotak 2 — Pembayaran ke vendor</strong> (opsional): Nama Vendor | Tanggal | Jumlah | Catatan
+        </div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:4px">1. Penjualan</div>
+        <textarea id="hi-sales" placeholder="Tempel data penjualan..." style="width:100%;min-height:130px;font-family:monospace;font-size:12px;padding:10px;border:1.5px solid var(--border2);border-radius:8px"></textarea>
+        <div style="font-size:12px;font-weight:600;margin:10px 0 4px">2. Pembayaran ke vendor (opsional)</div>
+        <textarea id="hi-pays" placeholder="Tempel data pembayaran..." style="width:100%;min-height:70px;font-family:monospace;font-size:12px;padding:10px;border:1.5px solid var(--border2);border-radius:8px"></textarea>
+      </div>
+      <div id="hi-step-preview" style="display:none">
+        <div id="hi-summary" style="margin-bottom:10px;font-size:13px;font-weight:600;line-height:1.6"></div>
+        <div id="hi-list" style="max-height:320px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="mf" id="hi-f-paste"><button class="btn btn-g" onclick="closeOv('hi-ov')">Batal</button><button class="btn btn-p" onclick="histImportPreview()">Lanjut — Cek Data</button></div>
+    <div class="mf" id="hi-f-prev" style="display:none"><button class="btn btn-g" onclick="histImportBack()">← Kembali</button><button class="btn btn-p" id="hi-go" onclick="histImportSave()">Simpan Sekarang</button></div>
+  </div>
+</div>
+
 <!-- BULK IMPORT MODAL -->
 <div class="ov" id="bi-ov">
   <div class="modal" style="max-width:600px">
@@ -3728,6 +3755,7 @@ function tkdCopyRekap(vendorId){
 function tkdRenderHistory(body){
   const opts='<option value="">Semua Vendor</option>'+tkdSortedVendors().map(v=>`<option value="${v.id}"${TKD_HIST_VENDOR===v.id?' selected':''}>${tkdEsc(v.name)}</option>`).join('');
   body.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-g" onclick="openHistImport()">⬆ Import Riwayat</button>
     <input type="text" id="tkd-hq" placeholder="🔍 Cari produk, vendor, atau catatan..." value="${tkdEsc(TKD_HIST_Q)}" oninput="TKD_HIST_Q=this.value;TKD_HIST_LIMIT=30;tkdRenderHistList()" style="flex:1;min-width:180px">
     <select id="tkd-hv" onchange="TKD_HIST_VENDOR=this.value;TKD_HIST_LIMIT=30;tkdRenderHistList()" style="min-width:150px">${opts}</select>
   </div><div id="tkd-hist-list"></div>`;
@@ -4364,6 +4392,86 @@ function saveProduk(){
       closeOv('pd-ov'); rProduk();
     } else { toast('⚠ Gagal: '+(res.error||'')); }
   }).catch(err=>{hideLoading();toast('⚠ Error: '+(err.message||'Gagal'));}).finally(()=>{SUBMIT_LOCK=false;});
+}
+/* ===== IMPORT RIWAYAT PENJUALAN ===== */
+let HI_DRAFT=null;
+function hiNum(x){ const t=String(x==null?'':x).replace(/[^0-9.,-]/g,'').replace(/[.,](?=\d{3}(\D|$))/g,''); const n=Number(t.replace(',','.')); return isNaN(n)?NaN:n; }
+function hiDate(x){ x=String(x||'').trim(); let m=x.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if(m) return m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2); m=x.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2); return ''; }
+function hiHash(str){ let h=5381; for(let i=0;i<str.length;i++){ h=((h<<5)+h+str.charCodeAt(i))|0; } return 'H'+(h>>>0).toString(36); }
+function openHistImport(){
+  document.getElementById('hi-sales').value=''; document.getElementById('hi-pays').value='';
+  histImportBack(); document.getElementById('hi-ov').classList.add('open');
+}
+function histImportBack(){
+  document.getElementById('hi-step-paste').style.display='block'; document.getElementById('hi-step-preview').style.display='none';
+  document.getElementById('hi-f-paste').style.display='flex'; document.getElementById('hi-f-prev').style.display='none';
+}
+function histImportPreview(){
+  const rawS=document.getElementById('hi-sales').value.trim(), rawP=document.getElementById('hi-pays').value.trim();
+  if(!rawS&&!rawP){ toast('⚠ Belum ada data ditempel'); return; }
+  showLoading('Mengecek data terbaru di database...');
+  refreshTrinketDataFromServer().then(()=>{ hideLoading(); histImportBuild(rawS,rawP); }).catch(()=>{ hideLoading(); histImportBuild(rawS,rawP); });
+}
+function histImportBuild(rawS,rawP){
+  const today=todayStr(), norm=t=>String(t||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const vByName={}; TRINKET_VENDORS.forEach(v=>{vByName[norm(v.name)]=v;});
+  const pByKey={}; TRINKET_PRODUCTS.forEach(p=>{pByKey[p.vendorId+'|'+norm(p.name)]=p;});
+  const rows=[], pays=[];
+  (rawS?rawS.split('\n'):[]).map(l=>l.replace(/\r/g,'')).filter(l=>l.trim()).forEach((line,i)=>{
+    const c=line.split('\t').map(x=>x.trim());
+    const errs=[]; const d=hiDate(c[0]); const v=vByName[norm(c[1])]; const p=v?pByKey[v.id+'|'+norm(c[2])]:null;
+    const q=hiNum(c[3]), pr=hiNum(c[4]), vp=hiNum(c[5]);
+    if(!d) errs.push('tanggal tidak valid'); else if(d>today) errs.push('tanggal di masa depan');
+    if(!v) errs.push('vendor tidak ditemukan'); else if(!p) errs.push('produk tidak ada di vendor ini');
+    if(!(q>0)) errs.push('qty salah'); if(isNaN(pr)||pr<0) errs.push('harga salah');
+    if(isNaN(vp)||vp<0) errs.push('bagian vendor salah'); else if(!isNaN(pr)&&q>0&&vp*q>pr*q) errs.push('bagian vendor > harga');
+    rows.push({n:i+1,line,errs,d,v,p,q,pr,vp,ch:(c[6]||'Offline'),buyer:c[7]||''});
+  });
+  (rawP?rawP.split('\n'):[]).map(l=>l.replace(/\r/g,'')).filter(l=>l.trim()).forEach((line,i)=>{
+    const c=line.split('\t').map(x=>x.trim()); const errs=[]; const v=vByName[norm(c[0])]; const d=hiDate(c[1]); const a=hiNum(c[2]);
+    if(!v) errs.push('vendor tidak ditemukan'); if(!d) errs.push('tanggal tidak valid'); else if(d>today) errs.push('tanggal di masa depan');
+    if(!(a>0)) errs.push('jumlah salah');
+    pays.push({k:i+1,line,errs,v,d,a,nt:c[3]||''});
+  });
+  HI_DRAFT={rows,pays,batch:hiHash(rawS+'||'+rawP)};
+  const bad=rows.filter(r=>r.errs.length).length+pays.filter(r=>r.errs.length).length;
+  const okR=rows.filter(r=>!r.errs.length), omzet=okR.reduce((a,r)=>a+r.pr*r.q,0), vend=okR.reduce((a,r)=>a+r.vp*r.q,0);
+  const byV={}; okR.forEach(r=>{const k=r.v.name;byV[k]=byV[k]||{o:0,v:0};byV[k].o+=r.pr*r.q;byV[k].v+=r.vp*r.q;});
+  const payTot=pays.filter(r=>!r.errs.length).reduce((a,r)=>a+r.a,0);
+  document.getElementById('hi-summary').innerHTML=
+    `${rows.length} transaksi · Omzet ${rp(omzet)} · Bagian vendor ${rp(vend)} · Pendapatan bisnis ${rp(omzet-vend)}<br>`+
+    `${pays.length} pembayaran vendor · Total ${rp(payTot)}`+
+    (bad?`<br><span style="color:var(--red)">⚠ ${bad} baris bermasalah — perbaiki dulu, tidak bisa disimpan.</span>`:`<br><span style="color:var(--green,#16a34a)">✓ Semua baris valid</span>`);
+  const perV=Object.keys(byV).sort().map(k=>`<tr><td style="padding:3px 6px">${tkdEsc(k)}</td><td style="padding:3px 6px;text-align:right">${rp(byV[k].o)}</td><td style="padding:3px 6px;text-align:right">${rp(byV[k].v)}</td></tr>`).join('');
+  const errList=[...rows,...pays].filter(r=>r.errs.length).map(r=>`<div style="padding:6px 8px;margin-bottom:4px;background:#fee2e2;border-radius:6px;font-size:12px"><strong>${r.errs.join(', ')}</strong><br><span style="font-family:monospace;color:var(--text2)">${tkdEsc(r.line)}</span></div>`).join('');
+  document.getElementById('hi-list').innerHTML=errList+(perV?`<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px"><tr style="color:var(--text3)"><th style="text-align:left;padding:3px 6px">Vendor</th><th style="text-align:right;padding:3px 6px">Omzet</th><th style="text-align:right;padding:3px 6px">Bagian vendor</th></tr>${perV}</table>`:'');
+  document.getElementById('hi-go').disabled=!!bad||(!okR.length&&!pays.length);
+  document.getElementById('hi-step-paste').style.display='none'; document.getElementById('hi-step-preview').style.display='block';
+  document.getElementById('hi-f-paste').style.display='none'; document.getElementById('hi-f-prev').style.display='flex';
+}
+async function histImportSave(){
+  if(SUBMIT_LOCK||!HI_DRAFT) return; SUBMIT_LOCK=true;
+  const D=HI_DRAFT; const sales=D.rows.map(r=>({n:r.n,d:r.d,ch:r.ch,nt:r.buyer,it:[{p:r.p.id,n:r.p.name,v:r.v.id,q:r.q,pr:r.pr,vp:r.vp*r.q}]}));
+  const pays=D.pays.map(r=>({k:r.k,v:r.v.id,d:r.d,a:r.a,nt:r.nt}));
+  const CH=10, chunks=[]; for(let i=0;i<sales.length;i+=CH) chunks.push({sales:sales.slice(i,i+CH),payouts:[]});
+  if(pays.length) chunks.push({sales:[],payouts:pays});
+  let saved=0,skipped=0,sp=0,kp=0;
+  try{
+    for(let i=0;i<chunks.length;i++){
+      showLoading(`Menyimpan ${i+1}/${chunks.length}...`);
+      let res=null;
+      for(let t=0;t<3&&!(res&&(res.success||res.error));t++){ res=await apiPost({action:'importTrinketHistory',batch_id:D.batch,sales:chunks[i].sales,payouts:chunks[i].payouts}); }
+      if(!res||!res.success){ hideLoading(); SUBMIT_LOCK=false; toast('⚠ Gagal pada bagian '+(i+1)+': '+((res&&res.error)||'tidak ada respon')+'. Aman diulang — data yang sudah masuk tidak akan dobel.'); return; }
+      saved+=res.saved_sales||0; skipped+=res.skipped_sales||0; sp+=res.saved_payouts||0; kp+=res.skipped_payouts||0;
+    }
+    showLoading('Memuat ulang data...');
+    await refreshTrinketDataFromServer();
+    const [a,b]=await Promise.all([apiGet('getTrinketSales'),apiGet('getTrinketPayouts')]);
+    if(a&&a.success) TRINKET_SALES=a.data; if(b&&b.success) TRINKET_PAYOUTS=b.data;
+    hideLoading(); SUBMIT_LOCK=false; closeOv('hi-ov');
+    toast(`✓ ${saved} transaksi & ${sp} pembayaran tersimpan`+((skipped||kp)?` (${skipped+kp} sudah ada, dilewati)`:''));
+    tkdRefreshIfVisible(); if(typeof rVendors==='function') try{rVendors();}catch(e){}
+  }catch(err){ hideLoading(); SUBMIT_LOCK=false; toast('⚠ Error: '+(err.message||'Gagal')); }
 }
 /* ===== IMPORT MASSAL PRODUK ===== */
 let BULK_IMPORT_DRAFT=[];
